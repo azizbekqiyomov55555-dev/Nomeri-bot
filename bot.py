@@ -47,9 +47,9 @@ class Config:
     """
 
     # ── Telegram ──────────────────────────────────────────────
-    bot_token: str = os.getenv("BOT_TOKEN", "bot_token")
-    admin_bot_token: str = os.getenv("ADMIN_BOT_TOKEN", "adminbot_token")
-    admin_id: int = int(os.getenv("ADMIN_ID", "0"))
+    bot_token: str = "8674893543:AAEmbCiJkWchGiSgXzXrcL_NYZRFl75GEbw"
+    admin_bot_token: str = "8537782289"
+    admin_id: int = "8537782289"
 
     # ── MySQL ──────────────────────────────────────────────────
     db_host: str = os.getenv("DB_HOST", "localhost")
