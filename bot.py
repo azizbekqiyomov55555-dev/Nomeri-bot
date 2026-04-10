@@ -592,6 +592,235 @@ def handle_update(update: dict):
         )
         return
 
+    # 📞 Nomer olish
+    if text == "📞 Nomer olish" and join_check(cid):
+        sms(cid,
+            "❗️Bo'limdan foydalanish uchun ushbu shartlarga roziligingizni bildiring\n\n"
+            "- Sizga virtual nomer berilganda uni bemalol almashtirishingiz yoki bekor qilishingiz mumkin\n"
+            "- Agar sizga sms kod kelsa virtual nomerni boshqa almashtirolmaysiz va nomer uchun pul yechiladi\n"
+            "- Agarda kelgan kod noto'g'ri bo'lsa siz berilgan 20 daqiqa ichida yangi sms kod so'rashingiz mumkin\n"
+            "- Agar sizga sms kelsa lekin nomerga kira olmasangiz hamda 20 daqiqani o'tkazib yuborsangiz nomer baribir sotilgan hisoblanadi\n"
+            "- Bot orqali olgan nomeringizni o'chirsangiz yoki u block bo'lsa nomer tiklab berilmaydi\n"
+            "- Telegram uchun nomer olganingizda 'Kod telegram orqali yuborildi' deyilgan habar chiqsa nomerni darhol bekor qiling!\n\n"
+            "☝️ Yuqoridagi holatlar uchun da'volar qabul qilinmaydi",
+            keyboard([
+                [{"text": "✅ Roziman", "callback_data": "hop"}],
+                [{"text": "❌ Bekor qilish", "callback_data": "main"}],
+            ])
+        )
+        return
+
+    # 💰 Hisobni to'ldirish
+    if text == "💰 Hisobni to'ldirish" and join_check(cid):
+        tolov_text = (
+            "💳 Hisobni to'ldirish\n\n"
+            "To'lov usulini tanlang yoki admin bilan bog'laning:\n\n"
+            "💡 Admin orqali to'ldirish uchun:\n"
+            "1. To'lov miqdorini yozing\n"
+            "2. Chek/screenshot yuboring\n"
+            "3. Admin tasdiqlaydi"
+        )
+        sms(cid, tolov_text, keyboard([
+            [{"text": "📲 Admin orqali to'ldirish", "callback_data": "menu=tolov"}],
+            [{"text": "🔙 Orqaga", "callback_data": "main"}],
+        ]))
+        return
+
+    # 🛒 Buyurtma holati
+    if text == "🛒 Buyurtma holati" and join_check(cid):
+        user = get_user(cid)
+        if not user:
+            sms(cid, "Foydalanuvchi topilmadi.", m)
+            return
+        orders = get_user_orders(cid)
+        if not orders:
+            sms(cid, "❌ Sizda hozircha buyurtmalar yo'q.", m)
+            return
+        last5 = orders[-5:]
+        txt = "🛒 So'nggi buyurtmalaringiz:\n\n"
+        for o in reversed(last5):
+            txt += (f"🆔 #{o.get('order_id')} | {o.get('status')}\n"
+                    f"📦 {o.get('quantity')} ta | 💵 {o.get('retail')} so'm\n"
+                    f"📅 {o.get('order_create','')}\n\n")
+        sms(cid, txt, m)
+        return
+
+    # 📞 Nomer API balans (admin)
+    if text == "📞 Nomer API balans" and str(cid) == str(ADMIN_ID):
+        try:
+            resp = requests.get(
+                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getBalance",
+                timeout=10, verify=False
+            )
+            h = resp.text.split(":")[1] if ":" in resp.text else resp.text
+        except Exception:
+            h = "Xatolik"
+        sms(cid,
+            f"📄 API ma'lumotlari:\n"
+            f"➖➖➖➖➖➖➖➖➖➖➖\n"
+            f"Ulangan sayt:\n<code>sms-activate.org</code>\n\n"
+            f"API kalit:\n<code>{SIM_KEY}</code>\n\n"
+            f"API hisob: {h} ₽\n"
+            f"➖➖➖➖➖➖➖➖➖➖➖",
+            admin_panel_menu()
+        )
+        _del_step(cid)
+        return
+
+    # 🤖 Bot holati (admin)
+    if text == "🤖 Bot holati" and str(cid) == str(ADMIN_ID):
+        settings2 = get_settings()
+        holat = settings2.get("status", "active")
+        sms(cid,
+            f"🤖 Botning hozirgi holati: <b>{'✅ Aktiv' if holat == 'active' else '❌ Nofaol'}</b>",
+            keyboard([
+                [{"text": "✅ Yoqish", "callback_data": "holat-active"},
+                 {"text": "❌ O'chirish", "callback_data": "holat-deactive"}],
+                [{"text": "🔙 Yopish", "callback_data": "yopish"}],
+            ])
+        )
+        return
+
+    # 🔔 Xabar yuborish (admin)
+    if text == "🔔 Xabar yuborish" and str(cid) == str(ADMIN_ID):
+        sms(cid,
+            "📢 Barcha foydalanuvchilarga yuboriladigan xabarni yozing:\n\n"
+            "⚠️ Xabar yuborilgandan keyin barcha foydalanuvchilarga jo'natiladi.",
+            back_menu()
+        )
+        _write_step(cid, "send")
+        return
+
+    if step == "send" and str(cid) == str(ADMIN_ID):
+        users_list = all_users()
+        ok = 0
+        fail = 0
+        for u in users_list:
+            try:
+                bot_call("copyMessage", {
+                    "chat_id": u["id"],
+                    "from_chat_id": cid,
+                    "message_id": mid,
+                })
+                ok += 1
+            except Exception:
+                fail += 1
+        sms(cid, f"✅ Xabar yuborildi!\n\n✅ Muvaffaqiyatli: {ok} ta\n❌ Xatolik: {fail} ta",
+            admin_panel_menu())
+        _del_step(cid)
+        return
+
+    # 👤 Foydalanuvchini boshqarish (admin)
+    if text == "👤 Foydalanuvchini boshqarish" and str(cid) == str(ADMIN_ID):
+        sms(cid,
+            "👤 Foydalanuvchini boshqarish\n\nFoydalanuvchi ID sini kiriting:",
+            back_menu()
+        )
+        _write_step(cid, "user_manage")
+        return
+
+    if step == "user_manage" and str(cid) == str(ADMIN_ID):
+        target_uid = text.strip()
+        target_user = get_user(target_uid)
+        if not target_user:
+            sms(cid, "❌ Foydalanuvchi topilmadi.", admin_panel_menu())
+            _del_step(cid)
+            return
+        u_orders = get_user_orders(target_uid)
+        sms(cid,
+            f"👤 Foydalanuvchi: {target_uid}\n"
+            f"♻️ Holat: {target_user.get('status','active')}\n"
+            f"💵 Balans: {target_user.get('balance','0')} so'm\n"
+            f"📊 Buyurtmalar: {len(u_orders)} ta\n"
+            f"💰 Kiritilgan: {target_user.get('outing','0')} so'm",
+            keyboard([
+                [{"text": "➕ Balans qo'shish", "callback_data": f"uadd={target_uid}"},
+                 {"text": "➖ Balans ayirish", "callback_data": f"usub={target_uid}"}],
+                [{"text": "✅ Faollashtirish", "callback_data": f"uact={target_uid}"},
+                 {"text": "❌ Bloklash", "callback_data": f"ublock={target_uid}"}],
+                [{"text": "🔙 Orqaga", "callback_data": "yopish"}],
+            ])
+        )
+        _del_step(cid)
+        return
+
+    # Foydalanuvchi balansiga qo'shish/ayirish miqdori kiritish
+    if step.startswith("uadd_amount=") and str(cid) == str(ADMIN_ID):
+        target_uid = step.replace("uadd_amount=", "")
+        try:
+            amount = float(text.strip())
+        except ValueError:
+            sms(cid, "⚠️ Faqat raqam kiriting.", back_menu())
+            return
+        target_user = get_user(target_uid)
+        if target_user:
+            target_user["balance"] = str(round(float(target_user["balance"]) + amount, 2))
+            save_user(target_uid, target_user)
+            sms(cid, f"✅ {target_uid} ga {amount} so'm qo'shildi.\nYangi balans: {target_user['balance']} so'm",
+                admin_panel_menu())
+            try:
+                sms(int(target_uid), f"💰 Hisobingizga {amount} so'm qo'shildi!\n\nBalans: {target_user['balance']} so'm", None)
+            except Exception:
+                pass
+        _del_step(cid)
+        return
+
+    if step.startswith("usub_amount=") and str(cid) == str(ADMIN_ID):
+        target_uid = step.replace("usub_amount=", "")
+        try:
+            amount = float(text.strip())
+        except ValueError:
+            sms(cid, "⚠️ Faqat raqam kiriting.", back_menu())
+            return
+        target_user = get_user(target_uid)
+        if target_user:
+            new_bal = max(0, float(target_user["balance"]) - amount)
+            target_user["balance"] = str(round(new_bal, 2))
+            save_user(target_uid, target_user)
+            sms(cid, f"✅ {target_uid} dan {amount} so'm ayirildi.\nYangi balans: {target_user['balance']} so'm",
+                admin_panel_menu())
+        _del_step(cid)
+        return
+
+    # Tolov so'rovi (foydalanuvchi)
+    if step.startswith("tolovqldm="):
+        pay_type = step.replace("tolovqldm=", "")
+        amount_text = text.strip()
+        try:
+            amount = float(amount_text)
+        except ValueError:
+            sms(cid, "⚠️ Faqat raqam kiriting.", back_menu())
+            return
+        user = get_user(cid)
+        sms(cid, f"✅ To'lov so'rovingiz qabul qilindi!\n\n💰 Miqdor: {amount} so'm\n\nAdmin tez orada tasdiqlaydi.", m)
+        sms(int(ADMIN_ID),
+            f"💰 Yangi to'lov so'rovi!\n\n"
+            f"👤 Foydalanuvchi ID: {cid}\n"
+            f"💵 Miqdor: {amount} so'm\n"
+            f"📲 To'lov turi: {pay_type}",
+            keyboard([
+                [{"text": "✅ Tasdiqlash", "callback_data": f"payadd={cid}={amount}"},
+                 {"text": "❌ Bekor qilish", "callback_data": f"paydel={cid}={amount}"}],
+            ])
+        )
+        _del_step(cid)
+        return
+
+    # Admin javob yozish
+    if step.startswith("javob_yoz="):
+        target_uid = step.replace("javob_yoz=", "")
+        try:
+            bot_call("copyMessage", {
+                "chat_id": int(target_uid),
+                "from_chat_id": cid,
+                "message_id": mid,
+            })
+            sms(cid, "✅ Javob yuborildi.", admin_panel_menu())
+        except Exception:
+            sms(cid, "❌ Xatolik yuz berdi.", admin_panel_menu())
+        _del_step(cid)
+        return
+
     # Callback query'lar
     if callback:
         _handle_callback(data=data, chat_id=chat_id, cid2=cid2, mid2=mid2,
@@ -709,6 +938,355 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
 
     elif data == "yopish":
         del_msg(chat_id, mid2)
+
+    # ============================================================
+    # 📞 NOMER OLISH - sms-activate.org orqali
+    # ============================================================
+
+    elif data == "hop":
+        # Roziman - davlatlar ro'yxati (1-sahifa)
+        try:
+            resp = requests.get(
+                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getCountries",
+                timeout=10, verify=False
+            )
+            if resp.text in ("BAD_KEY", "NO_KEY"):
+                bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                    "text": "⚠️ Botga API kalit ulanmagan!", "show_alert": True})
+                return
+            url = resp.json()
+        except Exception:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "⚠️ API bilan bog'lanishda xatolik!", "show_alert": True})
+            return
+        country_names = {
+            "Russia":"🇷🇺 Rossiya","Ukraine":"🇺🇦 Ukraina","Kazakhstan":"🇰🇿 Qozog'iston",
+            "China":"🇨🇳 Xitoy","Philippines":"🇵🇭 Filippin","Myanmar":"🇲🇲 Myanma",
+            "Indonesia":"🇮🇩 Indoneziya","Malaysia":"🇲🇾 Malayziya","Kenya":"🇰🇪 Keniya","Tanzania":"🇹🇿 Tanzaniya"
+        }
+        key = []
+        for i in range(min(10, len(url))):
+            eng = url[i].get("eng","")
+            n = country_names.get(eng, eng)
+            cid_val = url[i].get("id")
+            key.append({"text": n, "callback_data": f"raqam=tg=ig=fb=tw=vi=oi=ts=go={cid_val}={n}"})
+        key1 = [key[i:i+2] for i in range(0, len(key), 2)]
+        key1.append([{"text": "1/6", "callback_data": "null"}, {"text": "⏭️", "callback_data": "davlat2"}])
+        key1.append([{"text": "⏮️ Orqaga", "callback_data": "main"}])
+        edit_msg(chat_id, mid2, "🌍 Nomer olish uchun davlatlar ro'yxati:", keyboard(key1))
+
+    elif data in ("davlat2","davlat3","davlat4","davlat5","davlat6"):
+        page_map = {"davlat2":(10,20,"hop","davlat4","2/6"),
+                    "davlat3":(20,30,"davlat2","davlat5","3/6"),
+                    "davlat4":(30,40,"davlat3","davlat5","4/6"),
+                    "davlat5":(40,50,"davlat4","davlat6","5/6"),
+                    "davlat6":(53,63,"davlat5",None,"6/6")}
+        start_i, end_i, prev_cb, next_cb, page_label = page_map[data]
+        try:
+            url = requests.get(
+                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getCountries",
+                timeout=10, verify=False
+            ).json()
+        except Exception:
+            return
+        key = []
+        for i in range(start_i, min(end_i, len(url))):
+            eng = url[i].get("eng","")
+            cid_val = url[i].get("id")
+            key.append({"text": eng, "callback_data": f"raqam=tg=ig=fb=tw=vi=oi=ts=go={cid_val}={eng}"})
+        key1 = [key[i:i+2] for i in range(0, len(key), 2)]
+        nav = [{"text": f"⏮️", "callback_data": prev_cb}, {"text": page_label, "callback_data": "null"}]
+        if next_cb:
+            nav.append({"text": "⏭️", "callback_data": next_cb})
+        key1.append(nav)
+        key1.append([{"text": "⏮️ Orqaga", "callback_data": "hop"}])
+        edit_msg(chat_id, mid2, "🌍 Nomer olish uchun davlatlar ro'yxati:", keyboard(key1))
+
+    elif data and data.startswith("raqam="):
+        parts = data.split("=")
+        if len(parts) < 11:
+            return
+        tg_s, ig_s, fb_s, tw_s, vi_s, oi_s, ts_s, go_s = parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts[7], parts[8]
+        country_id = parts[9]
+        davlat = parts[10]
+
+        def get_price_count(service_code):
+            try:
+                j = requests.get(
+                    f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getTopCountriesByService&operator=any&service={service_code}",
+                    timeout=8, verify=False
+                ).json()
+                for el in j:
+                    if str(el.get("country")) == str(country_id):
+                        rate = float(el.get("retail_price", 0)) * SIM_RUB
+                        rp = rate / 100
+                        na = rp * SIM_FOIZ + rate
+                        return round(na, 0), el.get("count", 0)
+            except Exception:
+                pass
+            return 0, 0
+
+        tna, tson = get_price_count(tg_s)
+        ina, ison = get_price_count(ig_s)
+        fna, fson = get_price_count(fb_s)
+        wna, wson = get_price_count(tw_s)
+        gna, gson = get_price_count(go_s)
+        imna, son = get_price_count(vi_s)
+        stna, stson = get_price_count(oi_s)
+        schna, schson = get_price_count(ts_s)
+
+        edit_msg(chat_id, mid2,
+            f"📞 Nomerni qaysi ijtimoiy tarmoq uchun olmoqchisiz?\n\n"
+            f"🌍 Davlat: {davlat}\n\n"
+            f"📱 Telegram - {tna} so'm\n"
+            f"📷 Instagram - {ina} so'm\n"
+            f"📘 Facebook - {fna} so'm\n"
+            f"🐦 Twitter - {wna} so'm\n"
+            f"🔍 Google - {gna} so'm\n"
+            f"📞 Viber - {imna} so'm\n"
+            f"💘 Tinder - {stna} so'm\n"
+            f"💳 PayPal - {schna} so'm",
+            keyboard([
+                [{"text": f"📱 Telegram - {tson} ta", "callback_data": f"olish=tg={country_id}=any={tna}={davlat}"},
+                 {"text": f"📷 Instagram - {ison} ta", "callback_data": f"olish=ig={country_id}=any={ina}={davlat}"}],
+                [{"text": f"📘 Facebook - {fson} ta", "callback_data": f"olish=fb={country_id}=any={fna}={davlat}"},
+                 {"text": f"🐦 Twitter - {wson} ta", "callback_data": f"olish=tw={country_id}=any={wna}={davlat}"}],
+                [{"text": f"🔍 Google - {gson} ta", "callback_data": f"olish=go={country_id}=any={gna}={davlat}"},
+                 {"text": f"📞 Viber - {son} ta", "callback_data": f"olish=vi={country_id}=any={imna}={davlat}"}],
+                [{"text": f"💘 Tinder - {stson} ta", "callback_data": f"olish=oi={country_id}=any={stna}={davlat}"},
+                 {"text": f"💳 PayPal - {schson} ta", "callback_data": f"olish=ts={country_id}=any={schna}={davlat}"}],
+                [{"text": "🔙 Orqaga", "callback_data": "hop"}, {"text": "🏠 Menu", "callback_data": "main"}],
+            ])
+        )
+
+    elif data and data.startswith("olish="):
+        parts = data.split("=")
+        if len(parts) < 6:
+            return
+        xiz, country_id, op, pric_str, davlat = parts[1], parts[2], parts[3], parts[4], parts[5]
+        try:
+            pric = float(pric_str)
+        except ValueError:
+            return
+        user = get_user(chat_id)
+        if not user:
+            return
+        if float(user.get("balance", 0)) < pric:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "❗Sizda mablag' yetarli emas!", "show_alert": True})
+            return
+        try:
+            resp = requests.get(
+                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getNumber"
+                f"&service={xiz}&country={country_id}&operator={op}",
+                timeout=15, verify=False
+            )
+            response_text = resp.text
+        except Exception:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "❌ Xatolik yuz berdi!", "show_alert": True})
+            return
+        if response_text == "NO_NUMBERS":
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "❌ Bu tarmoq uchun nomer mavjud emas!", "show_alert": True})
+            return
+        if response_text == "NO_BALANCE":
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "⚠️ API balansida mablag' yetarli emas!", "show_alert": True})
+            return
+        if "ACCESS_NUMBER" in response_text:
+            pieces = response_text.split(":")
+            simid = pieces[1]
+            phone = pieces[2]
+            # Balansdan ayir
+            new_bal = round(float(user["balance"]) - pric, 2)
+            user["balance"] = str(new_bal)
+            save_user(chat_id, user)
+            edit_msg(chat_id, mid2,
+                f"🛎 Sizga nomer berildi\n"
+                f"🌍 Davlat: {davlat}\n"
+                f"💸 Narxi: {pric} so'm\n"
+                f"📞 Nomeringiz: +{phone}\n\n"
+                f"Nusxalash: <code>{phone}</code>\n\n"
+                f"📨 Kodni olish uchun « 📩 SMS-kod olish » tugmasini bosing!\n\n"
+                f"❗️Smsni kutishga 20 daqiqa berildi\n"
+                f"Agar 'Kod telegram orqali yuborildi' chiqsa nomerni darhol bekor qiling!",
+                keyboard([
+                    [{"text": "📩 SMS-kod olish", "callback_data": f"pcode_{simid}_{pric}"}],
+                    [{"text": "❌ Bekor qilish", "callback_data": f"otmena_{simid}_{pric}"}],
+                ])
+            )
+        else:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "❌ Nomer olishda xatolik!", "show_alert": True})
+
+    elif data and data.startswith("pcode_"):
+        parts = data.split("_")
+        simid = parts[1]
+        so_val = parts[2] if len(parts) > 2 else "0"
+        used = _read_file("simcard.txt") or ""
+        if simid in used:
+            del_msg(chat_id, mid2)
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "❌ Kech qoldingiz yoki raqamni olib bo'ldingiz!", "show_alert": True})
+            return
+        try:
+            resp = requests.get(
+                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getStatus&id={simid}",
+                timeout=10, verify=False
+            )
+            response_text = resp.text
+        except Exception:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "⚠️ Xatolik yuz berdi!", "show_alert": True})
+            return
+        if "STATUS_OK" in response_text:
+            smskod = response_text.split(":")[1]
+            del_msg(chat_id, mid2)
+            sms(chat_id, f"📩 SMS keldi!\n\n🔢 KOD: <code>{smskod}</code>", None)
+        elif response_text == "STATUS_CANCEL":
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": f"✅ Balansingizga {so_val} so'm qaytarildi!", "show_alert": True})
+            user = get_user(chat_id)
+            if user:
+                user["balance"] = str(round(float(user["balance"]) + float(so_val), 2))
+                save_user(chat_id, user)
+            _write_file("simcard.txt", f"\n{simid}")
+        else:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "⏰ SMS kutilmoqda! Biroz kuting...", "show_alert": True})
+
+    elif data and data.startswith("otmena_"):
+        parts = data.split("_")
+        simid = parts[1]
+        so_val = parts[2] if len(parts) > 2 else "0"
+        used = _read_file("simcard.txt") or ""
+        if simid in used:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "❌ Kech qoldingiz yoki raqamni olib bo'ldingiz!", "show_alert": True})
+            return
+        try:
+            resp = requests.get(
+                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=setStatus&status=8&id={simid}",
+                timeout=10, verify=False
+            )
+            response_text = resp.text
+        except Exception:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "⚠️ Xatolik!", "show_alert": True})
+            return
+        if "ACCESS_CANCEL" in response_text:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": f"✅ Balansingizga {so_val} so'm qaytarildi", "show_alert": True})
+            user = get_user(chat_id)
+            if user:
+                user["balance"] = str(round(float(user["balance"]) + float(so_val), 2))
+                save_user(chat_id, user)
+            _write_file("simcard.txt", f"\n{simid}")
+        else:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "❗ Kuting.....", "show_alert": True})
+
+    # ============================================================
+    # ADMIN CALLBACK'LAR
+    # ============================================================
+
+    elif data and data.startswith("holat-"):
+        new_status = data.replace("holat-", "")
+        s = get_settings()
+        s["status"] = new_status
+        _save("settings", s)
+        label = "✅ Aktiv" if new_status == "active" else "❌ Nofaol"
+        edit_msg(chat_id, mid2, f"🤖 Bot holati {label} ga o'zgartirildi.", None)
+
+    elif data and data.startswith("uadd="):
+        target_uid = data.replace("uadd=", "")
+        del_msg(chat_id, mid2)
+        sms(chat_id, f"➕ {target_uid} ga qo'shish uchun miqdorni kiriting (so'm):", back_menu())
+        _write_step(chat_id, f"uadd_amount={target_uid}")
+
+    elif data and data.startswith("usub="):
+        target_uid = data.replace("usub=", "")
+        del_msg(chat_id, mid2)
+        sms(chat_id, f"➖ {target_uid} dan ayirish uchun miqdorni kiriting (so'm):", back_menu())
+        _write_step(chat_id, f"usub_amount={target_uid}")
+
+    elif data and data.startswith("uact="):
+        target_uid = data.replace("uact=", "")
+        u = get_user(target_uid)
+        if u:
+            u["status"] = "active"
+            save_user(target_uid, u)
+            edit_msg(chat_id, mid2, f"✅ {target_uid} faollashtirildi.", None)
+
+    elif data and data.startswith("ublock="):
+        target_uid = data.replace("ublock=", "")
+        u = get_user(target_uid)
+        if u:
+            u["status"] = "deactive"
+            save_user(target_uid, u)
+            edit_msg(chat_id, mid2, f"❌ {target_uid} bloklandi.", None)
+
+    elif data and data.startswith("javob="):
+        target_uid = data.replace("javob=", "")
+        del_msg(chat_id, mid2)
+        sms(chat_id, f"📝 {target_uid} ga javob yozing:", back_menu())
+        _write_step(chat_id, f"javob_yoz={target_uid}")
+
+    elif data and data.startswith("payadd="):
+        parts = data.split("=")
+        target_uid = parts[1]
+        amount = float(parts[2]) if len(parts) > 2 else 0
+        u = get_user(target_uid)
+        if u:
+            u["balance"] = str(round(float(u["balance"]) + amount, 2))
+            u["outing"] = str(round(float(u.get("outing", "0")) + amount, 2))
+            save_user(target_uid, u)
+            edit_msg(chat_id, mid2,
+                f"✅ {target_uid} ga {amount} so'm qo'shildi.\nYangi balans: {u['balance']} so'm", None)
+            sms(int(target_uid), f"✅ Hisobingizga {amount} so'm qo'shildi!\n💰 Balans: {u['balance']} so'm", None)
+
+    elif data and data.startswith("paydel="):
+        parts = data.split("=")
+        target_uid = parts[1]
+        amount = parts[2] if len(parts) > 2 else "0"
+        edit_msg(chat_id, mid2, f"❌ {target_uid} ning {amount} so'mlik to'lov so'rovi bekor qilindi.", None)
+        sms(int(target_uid), f"❌ Hisobingizni {amount} so'mga to'ldirish so'rovi bekor qilindi.", None)
+
+    elif data == "menu=tolov":
+        edit_msg(chat_id, mid2,
+            "💳 Hisobni to'ldirish\n\n"
+            "To'lov miqdorini kiriting va adminga yuboring.\n\n"
+            "📲 Admin bilan bog'laning va to'lov chekini yuboring.",
+            keyboard([
+                [{"text": "👨‍💼 Admin bilan bog'lanish", "callback_data": "admin_contact"}],
+                [{"text": "🔙 Orqaga", "callback_data": "yopish"}],
+            ])
+        )
+
+    elif data == "admin_contact":
+        bot_call("answerCallbackQuery", {"callback_query_id": qid,
+            "text": "Admin bilan bog'lanish uchun ☎️ Administrator tugmasini bosing", "show_alert": True})
+
+    elif data == "pul_ishla":
+        user = get_user(chat_id)
+        if not user:
+            return
+        if not BOT_USERNAME:
+            info = bot_call("getMe")
+            BOT_USERNAME = info.get("result", {}).get("username", "bot")
+        bonus = settings.get("referal", "0")
+        edit_msg(chat_id, mid2,
+            f"🚀 Referal dasturi\n\n"
+            f"Sizning referal havolangiz:\nhttps://t.me/{BOT_USERNAME}?start=user{user['id']}\n\n"
+            f"Har bir taklif uchun {bonus} so'm beriladi.",
+            keyboard([[{"text": "🔙 Yopish", "callback_data": "yopish"}]])
+        )
+
+    elif data == "orqa":
+        del_msg(chat_id, mid2)
+        sms(chat_id, "🖥️ Asosiy menyuga qaytdingiz.", m)
+        _del_step(chat_id)
 
     elif data == "absd":
         categories = get_categories()
