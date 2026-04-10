@@ -23,7 +23,7 @@ TELEGRAM_API_KEY = os.getenv("BOT_TOKEN", "")
 ADMIN_ID         = os.getenv("ADMIN_ID", "")
 BOT_USERNAME     = os.getenv("BOT_USERNAME", "")
 
-SIM_KEY  = os.getenv("SIM_KEY", "8395fA936b4874292c214df2A4c9Ae8c")
+SIM_KEY  = os.getenv("SIM_KEY", "c9947f74188921527252c1cb9b14816f")
 SIM_FOIZ = int(os.getenv("SIM_FOIZ", "50"))
 SIM_RUB  = int(os.getenv("SIM_RUB", "130"))
 VALYUTA  = "so'm"
