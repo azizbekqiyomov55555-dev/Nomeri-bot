@@ -1,12 +1,9 @@
 FROM php:8.2-cli
 
-RUN docker-php-ext-install mysqli
 RUN apt-get update && apt-get install -y libcurl4-openssl-dev \
-    && docker-php-ext-install curl
+    && docker-php-ext-install mysqli curl
 
 WORKDIR /app
 COPY . .
 
-EXPOSE 8080
-
-CMD ["php", "-S", "0.0.0.0:8080", "bot.php"]
+CMD sh -c "php -S 0.0.0.0:${PORT:-8080} bot.php"
