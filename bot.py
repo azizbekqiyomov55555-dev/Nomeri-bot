@@ -1009,19 +1009,41 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
             return
 
         flag_map = {
-            "UZ": "🇺🇿 O'zbekiston", "RU": "🇷🇺 Rossiya", "KZ": "🇰🇿 Qozog'iston",
-            "UA": "🇺🇦 Ukraina", "US": "🇺🇸 AQSh", "TR": "🇹🇷 Turkiya",
-            "IN": "🇮🇳 Hindiston", "DE": "🇩🇪 Germaniya", "GB": "🇬🇧 Britaniya",
-            "FR": "🇫🇷 Fransiya", "PH": "🇵🇭 Filippin", "ID": "🇮🇩 Indoneziya",
+            "UZ": "🇺🇿 O'zbekiston",   "RU": "🇷🇺 Rossiya",        "KZ": "🇰🇿 Qozog'iston",
+            "UA": "🇺🇦 Ukraina",        "US": "🇺🇸 AQSh",           "TR": "🇹🇷 Turkiya",
+            "IN": "🇮🇳 Hindiston",      "DE": "🇩🇪 Germaniya",      "GB": "🇬🇧 Britaniya",
+            "FR": "🇫🇷 Fransiya",       "PH": "🇵🇭 Filippin",       "ID": "🇮🇩 Indoneziya",
+            "AF": "🇦🇫 Afgʻoniston",    "AE": "🇦🇪 BAA",            "BN": "🇧🇳 Bruney",
+            "EG": "🇪🇬 Misr",           "CK": "🇨🇰 Kuk orollari",  "GL": "🇬🇱 Grenlandiya",
+            "FK": "🇫🇰 Folklend",       "HK": "🇭🇰 Gonkong",        "HN": "🇭🇳 Gonduras",
+            "KG": "🇰🇬 Qirgʻiziston",   "IL": "🇮🇱 Isroil",         "KW": "🇰🇼 Quvayt",
+            "KM": "🇰🇲 Komor orollari", "MG": "🇲🇬 Madagaskar",     "LY": "🇱🇾 Liviya",
+            "MT": "🇲🇹 Malta",          "PK": "🇵🇰 Pokiston",       "MV": "🇲🇻 Maldiv",
+            "QA": "🇶🇦 Qatar",          "PS": "🇵🇸 Falastin",       "CN": "🇨🇳 Xitoy",
+            "MY": "🇲🇾 Malayziya",      "KE": "🇰🇪 Keniya",         "TZ": "🇹🇿 Tanzaniya",
+            "MM": "🇲🇲 Myanma",         "NG": "🇳🇬 Nigeriya",       "PL": "🇵🇱 Polsha",
+            "ES": "🇪🇸 Ispaniya",       "IT": "🇮🇹 Italiya",        "BR": "🇧🇷 Braziliya",
+            "AR": "🇦🇷 Argentina",      "MX": "🇲🇽 Meksika",        "TH": "🇹🇭 Tailand",
+            "VN": "🇻🇳 Vyetnam",        "SA": "🇸🇦 Saudiya Arabiston",
+            "IQ": "🇮🇶 Iroq",           "IR": "🇮🇷 Eron",           "BD": "🇧🇩 Bangladesh",
         }
+
+        # USD kursini UZS ga aylantirish (1 USD ~ 12800 so'm)
+        USD_TO_UZS = 12800
+
         btns = []
         items = list(server_countries.items())
         for i in range(0, len(items), 2):
             row = []
             for country_code, price_usd in items[i:i+2]:
                 label = flag_map.get(country_code, f"🌍 {country_code}")
+                try:
+                    price_uzs = round(float(price_usd) * USD_TO_UZS * (1 + SIM_FOIZ / 100), -2)
+                    price_str = f"{int(price_uzs):,} so'm".replace(",", " ")
+                except Exception:
+                    price_str = f"${price_usd}"
                 row.append({
-                    "text": f"{label} (${price_usd})",
+                    "text": f"{label} — {price_str}",
                     "callback_data": f"country_sel={country_code}={server_id}"
                 })
             btns.append(row)
@@ -1052,26 +1074,40 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
             return
 
         # Ustama qo'shish
-        final_price = round(float(price_uzs) * (1 + SIM_FOIZ / 100), 0)
+        final_price = round(float(price_uzs) * (1 + SIM_FOIZ / 100), -2)
 
         flag_map = {
-            "UZ": "🇺🇿 O'zbekiston", "RU": "🇷🇺 Rossiya", "KZ": "🇰🇿 Qozog'iston",
-            "UA": "🇺🇦 Ukraina", "US": "🇺🇸 AQSh", "TR": "🇹🇷 Turkiya",
-            "IN": "🇮🇳 Hindiston", "DE": "🇩🇪 Germaniya", "GB": "🇬🇧 Britaniya",
-            "FR": "🇫🇷 Fransiya", "PH": "🇵🇭 Filippin", "ID": "🇮🇩 Indoneziya",
+            "UZ": "🇺🇿 O'zbekiston",   "RU": "🇷🇺 Rossiya",        "KZ": "🇰🇿 Qozog'iston",
+            "UA": "🇺🇦 Ukraina",        "US": "🇺🇸 AQSh",           "TR": "🇹🇷 Turkiya",
+            "IN": "🇮🇳 Hindiston",      "DE": "🇩🇪 Germaniya",      "GB": "🇬🇧 Britaniya",
+            "FR": "🇫🇷 Fransiya",       "PH": "🇵🇭 Filippin",       "ID": "🇮🇩 Indoneziya",
+            "AF": "🇦🇫 Afgʻoniston",    "AE": "🇦🇪 BAA",            "BN": "🇧🇳 Bruney",
+            "EG": "🇪🇬 Misr",           "CK": "🇨🇰 Kuk orollari",  "GL": "🇬🇱 Grenlandiya",
+            "FK": "🇫🇰 Folklend",       "HK": "🇭🇰 Gonkong",        "HN": "🇭🇳 Gonduras",
+            "KG": "🇰🇬 Qirgʻiziston",   "IL": "🇮🇱 Isroil",         "KW": "🇰🇼 Quvayt",
+            "KM": "🇰🇲 Komor orollari", "MG": "🇲🇬 Madagaskar",     "LY": "🇱🇾 Liviya",
+            "MT": "🇲🇹 Malta",          "PK": "🇵🇰 Pokiston",       "MV": "🇲🇻 Maldiv",
+            "QA": "🇶🇦 Qatar",          "PS": "🇵🇸 Falastin",       "CN": "🇨🇳 Xitoy",
+            "MY": "🇲🇾 Malayziya",      "KE": "🇰🇪 Keniya",         "TZ": "🇹🇿 Tanzaniya",
+            "MM": "🇲🇲 Myanma",         "NG": "🇳🇬 Nigeriya",       "PL": "🇵🇱 Polsha",
+            "ES": "🇪🇸 Ispaniya",       "IT": "🇮🇹 Italiya",        "BR": "🇧🇷 Braziliya",
+            "AR": "🇦🇷 Argentina",      "MX": "🇲🇽 Meksika",        "TH": "🇹🇭 Tailand",
+            "VN": "🇻🇳 Vyetnam",        "SA": "🇸🇦 Saudiya Arabiston",
+            "IQ": "🇮🇶 Iroq",           "IR": "🇮🇷 Eron",           "BD": "🇧🇩 Bangladesh",
         }
-        davlat = flag_map.get(country_code, country_code)
+        davlat = flag_map.get(country_code, f"🌍 {country_code}")
+        price_str = f"{int(final_price):,} so'm".replace(",", " ")
 
         edit_msg(chat_id, mid2,
             f"📞 Nomer ma'lumotlari\n\n"
             f"🌍 Davlat: {davlat}\n"
             f"🖥 Server: {server_id}\n"
-            f"💵 Narxi: {final_price:.0f} so'm (${price_usd})\n\n"
+            f"💰 Narxi: {price_str}\n\n"
             f"⚡️ Telegram akkaunt — tayyor, faollashtirilgan!\n"
             f"📲 Nomer sotib olishni xohlaysizmi?",
             keyboard([
-                [{"text": f"✅ Sotib olish — {final_price:.0f} so'm",
-                  "callback_data": f"buy_num={country_code}={server_id}={final_price:.0f}={davlat}"}],
+                [{"text": f"✅ Sotib olish — {price_str}",
+                  "callback_data": f"buy_num={country_code}={server_id}={int(final_price)}={davlat}"}],
                 [{"text": "⏮️ Orqaga", "callback_data": f"server_sel={server_id}"}],
             ])
         )
@@ -1083,7 +1119,8 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
         country_code = parts[1]
         server_id = parts[2]
         pric = float(parts[3])
-        davlat = parts[4]
+        davlat = "=".join(parts[4:])  # davlat nomi = belgili bo'lishi mumkin
+        price_str = f"{int(pric):,} so'm".replace(",", " ")
 
         user = get_user(chat_id)
         if not user:
@@ -1124,13 +1161,13 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
             f"🛎 Sizga nomer berildi!\n\n"
             f"🌍 Davlat: {davlat}\n"
             f"🖥 Server: {server_id}\n"
-            f"💸 Narxi: {pric:.0f} so'm\n"
+            f"💸 Narxi: {price_str}\n"
             f"📞 Nomeringiz: {phone}\n\n"
             f"Nusxalash: <code>{phone}</code>\n\n"
             f"📨 Kodni olish uchun tugmani bosing!\n"
             f"⏰ Kod kelishini kuting...",
             keyboard([
-                [{"text": "📩 Kodni olish", "callback_data": f"pcode_{hash_code}_{pric}"}],
+                [{"text": "📩 Kodni olish", "callback_data": f"pcode_{hash_code}_{int(pric)}"}],
             ])
         )
 
