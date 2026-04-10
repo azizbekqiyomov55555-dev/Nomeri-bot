@@ -7,5 +7,4 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY . .
 
-ENTRYPOINT ["/bin/sh", "-c"]
-CMD ["php -S 0.0.0.0:${PORT:-8080} bot.php"]
+ENTRYPOINT ["sh", "-c", "php -S 0.0.0.0:${PORT:-8080} bot.php"]
