@@ -16,16 +16,16 @@ import datetime
 from flask import Flask, request, jsonify
 
 # ===========================================================================
-# SOZLAMALAR - faqat shu 2 ta kerak
+# SOZLAMALAR - Railway Variables orqali olinadi
 # ===========================================================================
 
-TELEGRAM_API_KEY = "8794628389:AAFUnBDrguXJLvmmvI-qOHOW1in4YNch9B4"
-ADMIN_ID         = "8537782289"
-BOT_USERNAME     = "@Vjjiygbot"
+TELEGRAM_API_KEY = os.getenv("BOT_TOKEN", "")
+ADMIN_ID         = os.getenv("ADMIN_ID", "")
+BOT_USERNAME     = os.getenv("BOT_USERNAME", "")
 
-SIM_KEY  = "8395fA936b4874292c214df2A4c9Ae8c"
-SIM_FOIZ = 50
-SIM_RUB  = 130
+SIM_KEY  = os.getenv("SIM_KEY", "8395fA936b4874292c214df2A4c9Ae8c")
+SIM_FOIZ = int(os.getenv("SIM_FOIZ", "50"))
+SIM_RUB  = int(os.getenv("SIM_RUB", "130"))
 VALYUTA  = "so'm"
 
 # ===========================================================================
