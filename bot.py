@@ -28,6 +28,113 @@ SIM_FOIZ = int(os.getenv("SIM_FOIZ", "50"))   # Ustama foiz (%)
 VALYUTA  = "so'm"
 SALESEEN_URL = "https://saleseen.uz/api/sms"
 
+def get_sim_key():
+    """Admin panelidan o'rnatilgan API kalitni olish"""
+    s = _load("settings")
+    return s.get("sim_key", "") or SIM_KEY
+
+def get_sim_foiz():
+    s = _load("settings")
+    try:
+        return int(s.get("sim_foiz", str(SIM_FOIZ)))
+    except Exception:
+        return SIM_FOIZ
+
+# Barcha mamlakatlar: kod → (bayroq emoji, o'zbek nomi)
+COUNTRY_MAP = {
+    "UZ": ("🇺🇿", "O'zbekiston"),     "RU": ("🇷🇺", "Rossiya"),
+    "KZ": ("🇰🇿", "Qozog'iston"),     "UA": ("🇺🇦", "Ukraina"),
+    "US": ("🇺🇸", "AQSh"),            "TR": ("🇹🇷", "Turkiya"),
+    "IN": ("🇮🇳", "Hindiston"),        "DE": ("🇩🇪", "Germaniya"),
+    "GB": ("🇬🇧", "Britaniya"),        "FR": ("🇫🇷", "Fransiya"),
+    "PH": ("🇵🇭", "Filippin"),         "ID": ("🇮🇩", "Indoneziya"),
+    "AF": ("🇦🇫", "Afgʻoniston"),      "AE": ("🇦🇪", "BAA"),
+    "BN": ("🇧🇳", "Bruney"),           "EG": ("🇪🇬", "Misr"),
+    "CK": ("🇨🇰", "Kuk orollari"),     "GL": ("🇬🇱", "Grenlandiya"),
+    "FK": ("🇫🇰", "Folklend"),         "HK": ("🇭🇰", "Gonkong"),
+    "HN": ("🇭🇳", "Gonduras"),         "KG": ("🇰🇬", "Qirgʻiziston"),
+    "IL": ("🇮🇱", "Isroil"),           "KW": ("🇰🇼", "Quvayt"),
+    "KM": ("🇰🇲", "Komor orollari"),   "MG": ("🇲🇬", "Madagaskar"),
+    "LY": ("🇱🇾", "Liviya"),           "MT": ("🇲🇹", "Malta"),
+    "PK": ("🇵🇰", "Pokiston"),         "MV": ("🇲🇻", "Maldiv"),
+    "QA": ("🇶🇦", "Qatar"),            "PS": ("🇵🇸", "Falastin"),
+    "CN": ("🇨🇳", "Xitoy"),            "MY": ("🇲🇾", "Malayziya"),
+    "KE": ("🇰🇪", "Keniya"),           "TZ": ("🇹🇿", "Tanzaniya"),
+    "MM": ("🇲🇲", "Myanma"),           "NG": ("🇳🇬", "Nigeriya"),
+    "PL": ("🇵🇱", "Polsha"),           "ES": ("🇪🇸", "Ispaniya"),
+    "IT": ("🇮🇹", "Italiya"),          "BR": ("🇧🇷", "Braziliya"),
+    "AR": ("🇦🇷", "Argentina"),        "MX": ("🇲🇽", "Meksika"),
+    "TH": ("🇹🇭", "Tailand"),          "VN": ("🇻🇳", "Vyetnam"),
+    "SA": ("🇸🇦", "Saudiya Arabiston"),"IQ": ("🇮🇶", "Iroq"),
+    "IR": ("🇮🇷", "Eron"),             "BD": ("🇧🇩", "Bangladesh"),
+    "ET": ("🇪🇹", "Efiopiya"),         "GH": ("🇬🇭", "Gana"),
+    "MA": ("🇲🇦", "Marokash"),         "SD": ("🇸🇩", "Sudan"),
+    "TN": ("🇹🇳", "Tunis"),            "DZ": ("🇩🇿", "Jazoir"),
+    "SN": ("🇸🇳", "Senegal"),          "CM": ("🇨🇲", "Kamerun"),
+    "ZA": ("🇿🇦", "Janubiy Afrika"),   "TG": ("🇹🇬", "Togo"),
+    "AZ": ("🇦🇿", "Ozarbayjon"),       "GE": ("🇬🇪", "Gruziya"),
+    "BY": ("🇧🇾", "Belarus"),          "AM": ("🇦🇲", "Armaniston"),
+    "MD": ("🇲🇩", "Moldova"),          "LT": ("🇱🇹", "Litva"),
+    "LV": ("🇱🇻", "Latviya"),          "EE": ("🇪🇪", "Estoniya"),
+    "NL": ("🇳🇱", "Niderlandiya"),     "BE": ("🇧🇪", "Belgiya"),
+    "AT": ("🇦🇹", "Avstriya"),         "CH": ("🇨🇭", "Shveytsariya"),
+    "SE": ("🇸🇪", "Shvetsiya"),        "NO": ("🇳🇴", "Norvegiya"),
+    "DK": ("🇩🇰", "Daniya"),           "FI": ("🇫🇮", "Finlandiya"),
+    "CZ": ("🇨🇿", "Chexiya"),          "SK": ("🇸🇰", "Slovakiya"),
+    "RO": ("🇷🇴", "Ruminiya"),         "HU": ("🇭🇺", "Vengriya"),
+    "RS": ("🇷🇸", "Serbiya"),          "HR": ("🇭🇷", "Xorvatiya"),
+    "PT": ("🇵🇹", "Portugaliya"),      "GR": ("🇬🇷", "Gretsiya"),
+    "BG": ("🇧🇬", "Bolgariya"),        "SI": ("🇸🇮", "Sloveniya"),
+    "JP": ("🇯🇵", "Yaponiya"),         "KR": ("🇰🇷", "Janubiy Koreya"),
+    "SG": ("🇸🇬", "Singapur"),         "AU": ("🇦🇺", "Avstraliya"),
+    "NZ": ("🇳🇿", "Yangi Zelandiya"),  "CA": ("🇨🇦", "Kanada"),
+    "MX": ("🇲🇽", "Meksika"),          "CO": ("🇨🇴", "Kolumbiya"),
+    "PE": ("🇵🇪", "Peru"),             "CL": ("🇨🇱", "Chili"),
+    "VE": ("🇻🇪", "Venesuela"),        "EC": ("🇪🇨", "Ekvador"),
+    "PY": ("🇵🇾", "Paragvay"),         "BO": ("🇧🇴", "Boliviya"),
+    "NP": ("🇳🇵", "Nepal"),            "LK": ("🇱🇰", "Shri-Lanka"),
+    "MM": ("🇲🇲", "Myanma"),           "KH": ("🇰🇭", "Kambodja"),
+    "MN": ("🇲🇳", "Mo'g'uliston"),     "TJ": ("🇹🇯", "Tojikiston"),
+    "TM": ("🇹🇲", "Turkmaniston"),     "UG": ("🇺🇬", "Uganda"),
+    "RW": ("🇷🇼", "Ruanda"),           "MZ": ("🇲🇿", "Mozambik"),
+    "ZM": ("🇿🇲", "Zambiya"),          "ZW": ("🇿🇼", "Zimbabve"),
+}
+
+# Boshqa tarmoqlar xizmat kodlari
+OTHER_SERVICES = [
+    ("vk",  "VKontakte",  "🔵"),
+    ("go",  "Google",     "🔴"),
+    ("fb",  "Facebook",   "🔷"),
+    ("ig",  "Instagram",  "📸"),
+    ("ma",  "Mail.ru",    "📧"),
+    ("ms",  "Microsoft",  "🪟"),
+    ("ra",  "Rambler",    "🌐"),
+    ("tw",  "Twitter",    "🐦"),
+    ("wa",  "WhatsApp",   "💬"),
+    ("vi",  "Viber",      "📳"),
+    ("ok",  "Odnoklassniki","🟠"),
+    ("yt",  "YouTube",    "▶️"),
+    ("tg",  "Telegram",   "✈️"),
+    ("av",  "Avito",      "🛒"),
+    ("am",  "Amazon",     "📦"),
+    ("ts",  "TikTok",     "🎵"),
+    ("oi",  "Tinder",     "💘"),
+    ("pp",  "PayPal",     "💳"),
+]
+
+def country_label(code):
+    info = COUNTRY_MAP.get(code)
+    if info:
+        return f"{info[0]} {info[1]}"
+    return f"🌍 {code}"
+
+def uzs_price(price_usd, foiz):
+    USD_RATE = 12800
+    try:
+        return int(round(float(price_usd) * USD_RATE * (1 + foiz / 100), -1))
+    except Exception:
+        return 0
+
 # ===========================================================================
 # JSON FAYL MA'LUMOTLAR BAZASI
 # ===========================================================================
@@ -142,7 +249,9 @@ def get_settings():
             "ref_status": "on",
             "bonus":      "500",
             "status":     "active",
-            "percent":    "40"
+            "percent":    "40",
+            "sim_key":    "",
+            "sim_foiz":   "50",
         }
         _save("settings", s)
     return s
@@ -244,10 +353,11 @@ def main_menu():
     return json.dumps({
         "resize_keyboard": True,
         "keyboard": [
-            [{"text": "🛍 Buyurtma berish"}, {"text": "📞 Nomer olish"}],
+            [{"text": "🛍 Buyurtma berish"}, {"text": "📱 Telegram Akauntlar"}],
             [{"text": "🔐 Mening hisobim"}, {"text": "💰 Hisobni to'ldirish"}],
             [{"text": "🛒 Buyurtma holati"}, {"text": "🚀 Referal yig'ish"}],
             [{"text": "☎️ Administrator"},   {"text": "🤝 Hamkorlik (API)"}],
+            [{"text": "📟 Boshqa Tarmoqlar"}],
         ]
     })
 
@@ -592,21 +702,44 @@ def handle_update(update: dict):
         )
         return
 
-    # 📞 Nomer olish
+    # 📱 Telegram Akauntlar
+    if text == "📱 Telegram Akauntlar" and join_check(cid):
+        sms(cid,
+            "📱 Telegram Akauntlar bo'limi\n\n"
+            "⚡️ Tayyor, faollashtirilgan Telegram akkauntlar\n"
+            "✅ 2FA yo'q — darhol kirish mumkin\n"
+            "✅ Bir nechta mamlakat va server\n\n"
+            "❗️ Nomer sotib olingandan so'm pul qaytarilmaydi",
+            keyboard([
+                [{"text": "✅ Davom etish", "callback_data": "tg_server_sel"}],
+                [{"text": "❌ Bekor qilish", "callback_data": "main"}],
+            ])
+        )
+        return
+
+    # 📟 Boshqa Tarmoqlar
+    if text == "📟 Boshqa Tarmoqlar" and join_check(cid):
+        sms(cid,
+            "📟 Boshqa Tarmoqlar uchun nomer olish\n\n"
+            "VKontakte, Google, Facebook, Instagram va boshqalar uchun\n"
+            "virtual nomer sotib oling.\n\n"
+            "❗️ Nomer sotib olingandan so'm pul qaytarilmaydi",
+            keyboard([
+                [{"text": "✅ Davom etish", "callback_data": "other_server_sel"}],
+                [{"text": "❌ Bekor qilish", "callback_data": "main"}],
+            ])
+        )
+        return
+
+    # (eski 📞 Nomer olish tugmasi uchun ham ishlashi)
     if text == "📞 Nomer olish" and join_check(cid):
         sms(cid,
-            "📞 Nomer olish bo'limi\n\n"
-            "⚡️ SaleSeen orqali tayyor Telegram akkauntlar:\n\n"
-            "✅ Oldindan faollashtirilgan\n"
-            "✅ 2FA (2-bosqichli tekshiruv) yo'q\n"
-            "✅ Kod darhol beriladi\n"
-            "✅ Bir nechta mamlakat mavjud\n\n"
-            "❗️ Shartlar:\n"
-            "- Nomer sotib olingandan so'm pul qaytarilmaydi\n"
-            "- Balans yetarli bo'lishi shart\n"
-            "- Nomer bir martalik foydalanish uchun",
+            "📱 Telegram Akauntlar bo'limi\n\n"
+            "⚡️ Tayyor, faollashtirilgan Telegram akkauntlar\n"
+            "✅ 2FA yo'q — darhol kirish mumkin\n\n"
+            "❗️ Nomer sotib olingandan so'm pul qaytarilmaydi",
             keyboard([
-                [{"text": "✅ Roziman, davom etish", "callback_data": "hop"}],
+                [{"text": "✅ Davom etish", "callback_data": "tg_server_sel"}],
                 [{"text": "❌ Bekor qilish", "callback_data": "main"}],
             ])
         )
@@ -649,9 +782,11 @@ def handle_update(update: dict):
 
     # 📞 Nomer API balans (admin)
     if text == "📞 Nomer API balans" and str(cid) == str(ADMIN_ID):
+        key = get_sim_key()
+        foiz = get_sim_foiz()
         try:
             resp = requests.get(
-                f"{SALESEEN_URL}?action=getBalance&apiKey={SIM_KEY}",
+                f"{SALESEEN_URL}?action=getBalance&apiKey={key}",
                 timeout=10, verify=False
             )
             j = resp.json()
@@ -660,18 +795,46 @@ def handle_update(update: dict):
                 cur = j["result"].get("currency", "UZS")
                 h = f"{bal} {cur}"
             else:
-                h = j.get("message", "Xatolik")
+                h = j.get("message", "Xatolik yoki kalit noto'g'ri")
         except Exception:
-            h = "Xatolik"
+            h = "Xatolik (API bilan bog'lanib bo'lmadi)"
         sms(cid,
-            f"📄 API ma'lumotlari:\n"
+            f"📄 SaleSeen API ma'lumotlari:\n"
             f"➖➖➖➖➖➖➖➖➖➖➖\n"
-            f"Ulangan sayt:\n<code>saleseen.uz</code>\n\n"
-            f"API kalit:\n<code>{SIM_KEY}</code>\n\n"
-            f"API hisob: {h}\n"
+            f"🌐 Ulangan sayt: saleseen.uz\n\n"
+            f"🔑 API kalit:\n<code>{key or 'Kiritilmagan'}</code>\n\n"
+            f"💰 API hisob: {h}\n"
+            f"📊 Ustama foiz: {foiz}%\n"
             f"➖➖➖➖➖➖➖➖➖➖➖",
-            admin_panel_menu()
+            keyboard([
+                [{"text": "🔑 API kalitni o'zgartirish", "callback_data": "set_sim_key"}],
+                [{"text": "📊 Foizni o'zgartirish",      "callback_data": "set_sim_foiz"}],
+                [{"text": "🔙 Orqaga", "callback_data": "yopish"}],
+            ])
         )
+        _del_step(cid)
+        return
+
+    # Admin: SIM kalit kiritish
+    if step == "set_sim_key" and str(cid) == str(ADMIN_ID):
+        s = _load("settings")
+        s["sim_key"] = text.strip()
+        _save("settings", s)
+        sms(cid, f"✅ API kalit saqlandi:\n<code>{text.strip()}</code>", admin_panel_menu())
+        _del_step(cid)
+        return
+
+    # Admin: SIM foiz kiritish
+    if step == "set_sim_foiz" and str(cid) == str(ADMIN_ID):
+        try:
+            foiz = int(text.strip())
+            s = _load("settings")
+            s["sim_foiz"] = str(foiz)
+            _save("settings", s)
+            sms(cid, f"✅ Ustama foiz {foiz}% ga o'zgartirildi.", admin_panel_menu())
+        except ValueError:
+            sms(cid, "⚠️ Faqat raqam kiriting.", back_menu())
+            return
         _del_step(cid)
         return
 
@@ -948,47 +1111,48 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
         del_msg(chat_id, mid2)
 
     # ============================================================
-    # 📞 NOMER OLISH - saleseen.uz orqali
+    # 📱 TELEGRAM AKAUNTLAR — Server → Mamlakat → Sotib olish
     # ============================================================
 
-    elif data == "hop":
-        # Roziman - davlatlar ro'yxati (availableCountries)
+    elif data == "hop" or data == "tg_server_sel":
+        key = get_sim_key()
         try:
             resp = requests.get(
-                f"{SALESEEN_URL}?action=availableCountries&apiKey={SIM_KEY}",
+                f"{SALESEEN_URL}?action=availableCountries&apiKey={key}",
                 timeout=10, verify=False
             )
             j = resp.json()
             if not j.get("success"):
                 bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                    "text": f"⚠️ Xatolik: {j.get('message','API xatolik')}", "show_alert": True})
+                    "text": f"⚠️ {j.get('message','API xatolik')}", "show_alert": True})
                 return
-            countries_data = j["result"]["countries"]  # {"1": {"UZ": "0.85"}, ...}
+            countries_data = j["result"]["countries"]
         except Exception:
             bot_call("answerCallbackQuery", {"callback_query_id": qid,
                 "text": "⚠️ API bilan bog'lanishda xatolik!", "show_alert": True})
             return
 
-        # Har bir server ID → server tugmasi
         server_ids = list(countries_data.keys())
-        _write_file(f"user/{chat_id}.servers", json.dumps(server_ids))
-
-        # Server tanlash menusi (har bir server = bir server raqami)
+        server_labels = {"1": "📱 Kichik baza [Arzon]", "2": "📱 Katta Baza [Server2]"}
         btns = []
-        for i in range(0, len(server_ids), 2):
-            row = []
-            for sid in server_ids[i:i+2]:
-                row.append({"text": f"🖥 Server {sid}", "callback_data": f"server_sel={sid}"})
-            btns.append(row)
-        btns.append([{"text": "⏮️ Orqaga", "callback_data": "main"}])
-        edit_msg(chat_id, mid2, "🖥 Nomer olish uchun server tanlang:", keyboard(btns))
+        for sid in server_ids:
+            label = server_labels.get(str(sid), f"🖥 Server {sid}")
+            btns.append([{"text": label, "callback_data": f"tg_clist={sid}=1"}])
+        btns.append([{"text": "🔙 Orqaga", "callback_data": "main"}])
+        edit_msg(chat_id, mid2, "📱 Qaysi serverdan foydalanmoqchisiz?", keyboard(btns))
 
-    elif data and data.startswith("server_sel="):
-        server_id = data.split("=")[1]
-        # Bu server uchun mavjud mamlakatlar
+    elif data and data.startswith("tg_clist="):
+        # tg_clist={server_id}={page}
+        parts = data.split("=")
+        server_id = parts[1]
+        page = int(parts[2]) if len(parts) > 2 else 1
+        key = get_sim_key()
+        foiz = get_sim_foiz()
+        PAGE_SIZE = 16  # har sahifada 16 mamlakat (8 qator x 2)
+
         try:
             resp = requests.get(
-                f"{SALESEEN_URL}?action=availableCountries&apiKey={SIM_KEY}",
+                f"{SALESEEN_URL}?action=availableCountries&apiKey={key}",
                 timeout=10, verify=False
             )
             j = resp.json()
@@ -996,8 +1160,7 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
                 bot_call("answerCallbackQuery", {"callback_query_id": qid,
                     "text": "⚠️ API xatolik", "show_alert": True})
                 return
-            countries_data = j["result"]["countries"]
-            server_countries = countries_data.get(str(server_id), {})
+            server_countries = j["result"]["countries"].get(str(server_id), {})
         except Exception:
             bot_call("answerCallbackQuery", {"callback_query_id": qid,
                 "text": "⚠️ Xatolik!", "show_alert": True})
@@ -1008,56 +1171,80 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
                 "text": "❌ Bu serverda mamlakat yo'q!", "show_alert": True})
             return
 
-        flag_map = {
-            "UZ": "🇺🇿 O'zbekiston",   "RU": "🇷🇺 Rossiya",        "KZ": "🇰🇿 Qozog'iston",
-            "UA": "🇺🇦 Ukraina",        "US": "🇺🇸 AQSh",           "TR": "🇹🇷 Turkiya",
-            "IN": "🇮🇳 Hindiston",      "DE": "🇩🇪 Germaniya",      "GB": "🇬🇧 Britaniya",
-            "FR": "🇫🇷 Fransiya",       "PH": "🇵🇭 Filippin",       "ID": "🇮🇩 Indoneziya",
-            "AF": "🇦🇫 Afgʻoniston",    "AE": "🇦🇪 BAA",            "BN": "🇧🇳 Bruney",
-            "EG": "🇪🇬 Misr",           "CK": "🇨🇰 Kuk orollari",  "GL": "🇬🇱 Grenlandiya",
-            "FK": "🇫🇰 Folklend",       "HK": "🇭🇰 Gonkong",        "HN": "🇭🇳 Gonduras",
-            "KG": "🇰🇬 Qirgʻiziston",   "IL": "🇮🇱 Isroil",         "KW": "🇰🇼 Quvayt",
-            "KM": "🇰🇲 Komor orollari", "MG": "🇲🇬 Madagaskar",     "LY": "🇱🇾 Liviya",
-            "MT": "🇲🇹 Malta",          "PK": "🇵🇰 Pokiston",       "MV": "🇲🇻 Maldiv",
-            "QA": "🇶🇦 Qatar",          "PS": "🇵🇸 Falastin",       "CN": "🇨🇳 Xitoy",
-            "MY": "🇲🇾 Malayziya",      "KE": "🇰🇪 Keniya",         "TZ": "🇹🇿 Tanzaniya",
-            "MM": "🇲🇲 Myanma",         "NG": "🇳🇬 Nigeriya",       "PL": "🇵🇱 Polsha",
-            "ES": "🇪🇸 Ispaniya",       "IT": "🇮🇹 Italiya",        "BR": "🇧🇷 Braziliya",
-            "AR": "🇦🇷 Argentina",      "MX": "🇲🇽 Meksika",        "TH": "🇹🇭 Tailand",
-            "VN": "🇻🇳 Vyetnam",        "SA": "🇸🇦 Saudiya Arabiston",
-            "IQ": "🇮🇶 Iroq",           "IR": "🇮🇷 Eron",           "BD": "🇧🇩 Bangladesh",
-        }
-
-        # USD kursini UZS ga aylantirish (1 USD ~ 12800 so'm)
-        USD_TO_UZS = 12800
+        items = list(server_countries.items())
+        total_pages = max(1, (len(items) + PAGE_SIZE - 1) // PAGE_SIZE)
+        start = (page - 1) * PAGE_SIZE
+        page_items = items[start:start + PAGE_SIZE]
 
         btns = []
-        items = list(server_countries.items())
-        for i in range(0, len(items), 2):
+        for i in range(0, len(page_items), 2):
             row = []
-            for country_code, price_usd in items[i:i+2]:
-                label = flag_map.get(country_code, f"🌍 {country_code}")
-                try:
-                    price_uzs = round(float(price_usd) * USD_TO_UZS * (1 + SIM_FOIZ / 100), -2)
-                    price_str = f"{int(price_uzs):,} so'm".replace(",", " ")
-                except Exception:
-                    price_str = f"${price_usd}"
+            for country_code, price_usd in page_items[i:i+2]:
+                label = country_label(country_code)
                 row.append({
-                    "text": f"{label} — {price_str}",
-                    "callback_data": f"country_sel={country_code}={server_id}"
+                    "text": label,
+                    "callback_data": f"tg_buy_confirm={country_code}={server_id}"
                 })
             btns.append(row)
-        btns.append([{"text": "⏮️ Orqaga", "callback_data": "hop"}])
-        edit_msg(chat_id, mid2, f"🌍 Server {server_id} — mamlakat tanlang:", keyboard(btns))
 
-    elif data and data.startswith("country_sel="):
+        # Navigatsiya
+        nav = []
+        if page > 1:
+            nav.append({"text": "⬅️", "callback_data": f"tg_clist={server_id}={page-1}"})
+        nav.append({"text": f"{page}/{total_pages}", "callback_data": "null"})
+        if page < total_pages:
+            nav.append({"text": "➡️ Keyingi", "callback_data": f"tg_clist={server_id}={page+1}"})
+        btns.append(nav)
+        btns.append([{"text": "⭐ TOP Arzon Davlatlar", "callback_data": f"tg_top={server_id}"}])
+        btns.append([{"text": "🔙 Orqaga", "callback_data": "tg_server_sel"}])
+        edit_msg(chat_id, mid2,
+            f"❗ Qaysi davlattan nomer xarid qilmoqchisiz?\n"
+            f"🛍 Topilgan davlatlar ro'yxati:",
+            keyboard(btns)
+        )
+
+    elif data and data.startswith("tg_top="):
+        server_id = data.split("=")[1]
+        key = get_sim_key()
+        foiz = get_sim_foiz()
+        try:
+            resp = requests.get(
+                f"{SALESEEN_URL}?action=availableCountries&apiKey={key}",
+                timeout=10, verify=False
+            )
+            j = resp.json()
+            server_countries = j["result"]["countries"].get(str(server_id), {})
+        except Exception:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "⚠️ Xatolik!", "show_alert": True})
+            return
+
+        # Eng arzondan saralash
+        sorted_c = sorted(server_countries.items(), key=lambda x: float(x[1]))[:10]
+        btns = []
+        for i in range(0, len(sorted_c), 2):
+            row = []
+            for country_code, price_usd in sorted_c[i:i+2]:
+                price = uzs_price(price_usd, foiz)
+                label = country_label(country_code)
+                row.append({
+                    "text": f"{label} — {price:,} so'm".replace(",", " "),
+                    "callback_data": f"tg_buy_confirm={country_code}={server_id}"
+                })
+            btns.append(row)
+        btns.append([{"text": "🔙 Barcha Davlatlar", "callback_data": f"tg_clist={server_id}=1"}])
+        edit_msg(chat_id, mid2, "⭐ TOP Arzon Davlatlar:", keyboard(btns))
+
+    elif data and data.startswith("tg_buy_confirm="):
         parts = data.split("=")
         country_code = parts[1]
         server_id = parts[2]
-        # Narxni olish
+        key = get_sim_key()
+        foiz = get_sim_foiz()
+
         try:
             resp = requests.get(
-                f"{SALESEEN_URL}?action=priceNumberFromCountry&apiKey={SIM_KEY}"
+                f"{SALESEEN_URL}?action=priceNumberFromCountry&apiKey={key}"
                 f"&country={country_code}&server={server_id}",
                 timeout=10, verify=False
             )
@@ -1066,61 +1253,41 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
                 bot_call("answerCallbackQuery", {"callback_query_id": qid,
                     "text": f"⚠️ {j.get('message','Xatolik')}", "show_alert": True})
                 return
-            price_uzs = j["result"]["prices"].get("UZS", 0)
+            price_uzs = float(j["result"]["prices"].get("UZS", 0))
             price_usd = j["result"]["prices"].get("USD", 0)
         except Exception:
             bot_call("answerCallbackQuery", {"callback_query_id": qid,
                 "text": "⚠️ Narx olishda xatolik!", "show_alert": True})
             return
 
-        # Ustama qo'shish
-        final_price = round(float(price_uzs) * (1 + SIM_FOIZ / 100), -2)
+        final_price = uzs_price(price_usd, foiz) if price_uzs == 0 else int(round(price_uzs * (1 + foiz / 100), -1))
+        davlat = country_label(country_code)
+        price_str = f"{final_price:,} so'm".replace(",", " ")
 
-        flag_map = {
-            "UZ": "🇺🇿 O'zbekiston",   "RU": "🇷🇺 Rossiya",        "KZ": "🇰🇿 Qozog'iston",
-            "UA": "🇺🇦 Ukraina",        "US": "🇺🇸 AQSh",           "TR": "🇹🇷 Turkiya",
-            "IN": "🇮🇳 Hindiston",      "DE": "🇩🇪 Germaniya",      "GB": "🇬🇧 Britaniya",
-            "FR": "🇫🇷 Fransiya",       "PH": "🇵🇭 Filippin",       "ID": "🇮🇩 Indoneziya",
-            "AF": "🇦🇫 Afgʻoniston",    "AE": "🇦🇪 BAA",            "BN": "🇧🇳 Bruney",
-            "EG": "🇪🇬 Misr",           "CK": "🇨🇰 Kuk orollari",  "GL": "🇬🇱 Grenlandiya",
-            "FK": "🇫🇰 Folklend",       "HK": "🇭🇰 Gonkong",        "HN": "🇭🇳 Gonduras",
-            "KG": "🇰🇬 Qirgʻiziston",   "IL": "🇮🇱 Isroil",         "KW": "🇰🇼 Quvayt",
-            "KM": "🇰🇲 Komor orollari", "MG": "🇲🇬 Madagaskar",     "LY": "🇱🇾 Liviya",
-            "MT": "🇲🇹 Malta",          "PK": "🇵🇰 Pokiston",       "MV": "🇲🇻 Maldiv",
-            "QA": "🇶🇦 Qatar",          "PS": "🇵🇸 Falastin",       "CN": "🇨🇳 Xitoy",
-            "MY": "🇲🇾 Malayziya",      "KE": "🇰🇪 Keniya",         "TZ": "🇹🇿 Tanzaniya",
-            "MM": "🇲🇲 Myanma",         "NG": "🇳🇬 Nigeriya",       "PL": "🇵🇱 Polsha",
-            "ES": "🇪🇸 Ispaniya",       "IT": "🇮🇹 Italiya",        "BR": "🇧🇷 Braziliya",
-            "AR": "🇦🇷 Argentina",      "MX": "🇲🇽 Meksika",        "TH": "🇹🇭 Tailand",
-            "VN": "🇻🇳 Vyetnam",        "SA": "🇸🇦 Saudiya Arabiston",
-            "IQ": "🇮🇶 Iroq",           "IR": "🇮🇷 Eron",           "BD": "🇧🇩 Bangladesh",
-        }
-        davlat = flag_map.get(country_code, f"🌍 {country_code}")
-        price_str = f"{int(final_price):,} so'm".replace(",", " ")
-
+        user = get_user(chat_id)
+        bal = float(user["balance"]) if user else 0
         edit_msg(chat_id, mid2,
             f"📞 Nomer ma'lumotlari\n\n"
             f"🌍 Davlat: {davlat}\n"
             f"🖥 Server: {server_id}\n"
-            f"💰 Narxi: {price_str}\n\n"
-            f"⚡️ Telegram akkaunt — tayyor, faollashtirilgan!\n"
-            f"📲 Nomer sotib olishni xohlaysizmi?",
+            f"💰 Narxi: {price_str}\n"
+            f"💳 Balansingiz: {int(bal):,} so'm\n\n".replace(",", " ") +
+            ("✅ Sotib olish mumkin!" if bal >= final_price else "❌ Balans yetarli emas!"),
             keyboard([
                 [{"text": f"✅ Sotib olish — {price_str}",
-                  "callback_data": f"buy_num={country_code}={server_id}={int(final_price)}={davlat}"}],
-                [{"text": "⏮️ Orqaga", "callback_data": f"server_sel={server_id}"}],
+                  "callback_data": f"tg_buy={country_code}={server_id}={final_price}"}],
+                [{"text": "🔙 Orqaga", "callback_data": f"tg_clist={server_id}=1"}],
             ])
         )
 
-    elif data and data.startswith("buy_num="):
+    elif data and data.startswith("tg_buy="):
         parts = data.split("=")
-        if len(parts) < 5:
-            return
         country_code = parts[1]
         server_id = parts[2]
         pric = float(parts[3])
-        davlat = "=".join(parts[4:])  # davlat nomi = belgili bo'lishi mumkin
         price_str = f"{int(pric):,} so'm".replace(",", " ")
+        davlat = country_label(country_code)
+        key = get_sim_key()
 
         user = get_user(chat_id)
         if not user:
@@ -1130,10 +1297,9 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
                 "text": "❗ Sizda mablag' yetarli emas!", "show_alert": True})
             return
 
-        # Nomer sotib olish
         try:
             resp = requests.get(
-                f"{SALESEEN_URL}?action=buyNumber&apiKey={SIM_KEY}"
+                f"{SALESEEN_URL}?action=buyNumber&apiKey={key}"
                 f"&country={country_code}&server={server_id}",
                 timeout=15, verify=False
             )
@@ -1150,9 +1316,7 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
 
         phone = j["result"]["number"]
         hash_code = j["result"]["hash_code"]
-        real_price_uzs = j["result"]["prices"].get("UZS", pric)
 
-        # Balansdan ayir
         new_bal = round(float(user["balance"]) - pric, 2)
         user["balance"] = str(new_bal)
         save_user(chat_id, user)
@@ -1162,10 +1326,226 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
             f"🌍 Davlat: {davlat}\n"
             f"🖥 Server: {server_id}\n"
             f"💸 Narxi: {price_str}\n"
-            f"📞 Nomeringiz: {phone}\n\n"
-            f"Nusxalash: <code>{phone}</code>\n\n"
-            f"📨 Kodni olish uchun tugmani bosing!\n"
-            f"⏰ Kod kelishini kuting...",
+            f"📞 Nomer: <code>{phone}</code>\n\n"
+            f"📨 Kodni olish uchun quyidagi tugmani bosing!\n"
+            f"⏰ Kodni kuting...",
+            keyboard([
+                [{"text": "📩 Kodni olish", "callback_data": f"pcode_{hash_code}_{int(pric)}"}],
+            ])
+        )
+
+    # ============================================================
+    # 📟 BOSHQA TARMOQLAR — Server → Mamlakat → Xizmat → Sotib olish
+    # ============================================================
+
+    elif data == "other_server_sel":
+        key = get_sim_key()
+        try:
+            resp = requests.get(
+                f"{SALESEEN_URL}?action=availableCountries&apiKey={key}",
+                timeout=10, verify=False
+            )
+            j = resp.json()
+            if not j.get("success"):
+                bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                    "text": f"⚠️ {j.get('message','API xatolik')}", "show_alert": True})
+                return
+            countries_data = j["result"]["countries"]
+        except Exception:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "⚠️ API bilan bog'lanishda xatolik!", "show_alert": True})
+            return
+
+        server_ids = list(countries_data.keys())
+        server_labels = {"1": "📟 Kichik baza [Arzon]", "2": "📟 Katta Baza [Server2]"}
+        btns = []
+        for sid in server_ids:
+            label = server_labels.get(str(sid), f"🖥 Server {sid}")
+            btns.append([{"text": label, "callback_data": f"oth_clist={sid}=1"}])
+        btns.append([{"text": "🔙 Orqaga", "callback_data": "main"}])
+        edit_msg(chat_id, mid2, "📟 Qaysi serverdan foydalanmoqchisiz?", keyboard(btns))
+
+    elif data and data.startswith("oth_clist="):
+        parts = data.split("=")
+        server_id = parts[1]
+        page = int(parts[2]) if len(parts) > 2 else 1
+        key = get_sim_key()
+        PAGE_SIZE = 16
+
+        try:
+            resp = requests.get(
+                f"{SALESEEN_URL}?action=availableCountries&apiKey={key}",
+                timeout=10, verify=False
+            )
+            j = resp.json()
+            server_countries = j["result"]["countries"].get(str(server_id), {})
+        except Exception:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "⚠️ Xatolik!", "show_alert": True})
+            return
+
+        items = list(server_countries.items())
+        total_pages = max(1, (len(items) + PAGE_SIZE - 1) // PAGE_SIZE)
+        start = (page - 1) * PAGE_SIZE
+        page_items = items[start:start + PAGE_SIZE]
+
+        btns = []
+        for i in range(0, len(page_items), 2):
+            row = []
+            for country_code, price_usd in page_items[i:i+2]:
+                label = country_label(country_code)
+                row.append({
+                    "text": label,
+                    "callback_data": f"oth_services={country_code}={server_id}"
+                })
+            btns.append(row)
+
+        nav = []
+        if page > 1:
+            nav.append({"text": "⬅️", "callback_data": f"oth_clist={server_id}={page-1}"})
+        nav.append({"text": f"{page}/{total_pages}", "callback_data": "null"})
+        if page < total_pages:
+            nav.append({"text": "➡️ Keyingi", "callback_data": f"oth_clist={server_id}={page+1}"})
+        btns.append(nav)
+        btns.append([{"text": "⭐ TOP Arzon Davlatlar", "callback_data": f"oth_top={server_id}"}])
+        btns.append([{"text": "🔙 Orqaga", "callback_data": "other_server_sel"}])
+        edit_msg(chat_id, mid2,
+            "❗ Qaysi davlattan nomer xarid qilmoqchisiz?\n🛍 Topilgan davlatlar ro'yxati:",
+            keyboard(btns)
+        )
+
+    elif data and data.startswith("oth_top="):
+        server_id = data.split("=")[1]
+        key = get_sim_key()
+        foiz = get_sim_foiz()
+        try:
+            resp = requests.get(
+                f"{SALESEEN_URL}?action=availableCountries&apiKey={key}",
+                timeout=10, verify=False
+            )
+            j = resp.json()
+            server_countries = j["result"]["countries"].get(str(server_id), {})
+        except Exception:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "⚠️ Xatolik!", "show_alert": True})
+            return
+
+        sorted_c = sorted(server_countries.items(), key=lambda x: float(x[1]))[:10]
+        btns = []
+        for i in range(0, len(sorted_c), 2):
+            row = []
+            for country_code, price_usd in sorted_c[i:i+2]:
+                label = country_label(country_code)
+                row.append({
+                    "text": label,
+                    "callback_data": f"oth_services={country_code}={server_id}"
+                })
+            btns.append(row)
+        btns.append([{"text": "🔙 Barcha Davlatlar", "callback_data": f"oth_clist={server_id}=1"}])
+        edit_msg(chat_id, mid2, "⭐ TOP Arzon Davlatlar:", keyboard(btns))
+
+    elif data and data.startswith("oth_services="):
+        parts = data.split("=")
+        country_code = parts[1]
+        server_id = parts[2]
+        key = get_sim_key()
+        foiz = get_sim_foiz()
+        davlat = country_label(country_code)
+
+        # Har bir xizmat uchun narx olish
+        svc_prices = {}
+        for svc_code, svc_name, svc_icon in OTHER_SERVICES:
+            try:
+                resp = requests.get(
+                    f"{SALESEEN_URL}?action=priceNumberFromCountry&apiKey={key}"
+                    f"&country={country_code}&server={server_id}&service={svc_code}",
+                    timeout=5, verify=False
+                )
+                j2 = resp.json()
+                if j2.get("success"):
+                    p_uzs = float(j2["result"]["prices"].get("UZS", 0))
+                    p_usd = j2["result"]["prices"].get("USD", 0)
+                    final = uzs_price(p_usd, foiz) if p_uzs == 0 else int(round(p_uzs * (1 + foiz / 100), -1))
+                    svc_prices[svc_code] = (svc_name, svc_icon, final)
+            except Exception:
+                pass
+
+        if not svc_prices:
+            # Agar narx olish ishlamas a, narxsiz ko'rsatamiz
+            for svc_code, svc_name, svc_icon in OTHER_SERVICES:
+                svc_prices[svc_code] = (svc_name, svc_icon, 0)
+
+        # Xabar matni
+        txt = f"📞 Nomerni qaysi ijtimoiy tarmoq uchun xarid qilmoqchisiz?\n\n♻️ Davlat: {davlat}\n\n"
+        for svc_code, (svc_name, svc_icon, price) in svc_prices.items():
+            p_str = f"{price:,} so'm".replace(",", " ") if price > 0 else "—"
+            txt += f"💠 {svc_name} — {p_str}\n"
+
+        btns = []
+        svc_list = list(svc_prices.items())
+        for i in range(0, len(svc_list), 2):
+            row = []
+            for svc_code, (svc_name, svc_icon, price) in svc_list[i:i+2]:
+                p_str = f"{price:,} so'm".replace(",", " ") if price > 0 else "—"
+                row.append({
+                    "text": f"{svc_icon} {svc_name} 🔥-({p_str})",
+                    "callback_data": f"oth_buy_c={country_code}={server_id}={svc_code}={price}"
+                })
+            btns.append(row)
+        btns.append([{"text": "🌍 Barcha Davlatlar", "callback_data": f"oth_clist={server_id}=1"}])
+        edit_msg(chat_id, mid2, txt, keyboard(btns))
+
+    elif data and data.startswith("oth_buy_c="):
+        # oth_buy_c={country}={server}={svc_code}={price}
+        parts = data.split("=")
+        country_code = parts[1]
+        server_id = parts[2]
+        svc_code = parts[3]
+        pric = float(parts[4]) if len(parts) > 4 else 0
+        price_str = f"{int(pric):,} so'm".replace(",", " ")
+        davlat = country_label(country_code)
+        svc_name = next((s[1] for s in OTHER_SERVICES if s[0] == svc_code), svc_code)
+        key = get_sim_key()
+
+        user = get_user(chat_id)
+        if not user:
+            return
+        if float(user.get("balance", 0)) < pric:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "❗ Sizda mablag' yetarli emas!", "show_alert": True})
+            return
+
+        try:
+            resp = requests.get(
+                f"{SALESEEN_URL}?action=buyNumber&apiKey={key}"
+                f"&country={country_code}&server={server_id}&service={svc_code}",
+                timeout=15, verify=False
+            )
+            j = resp.json()
+        except Exception:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "❌ Xatolik yuz berdi!", "show_alert": True})
+            return
+
+        if not j.get("success"):
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": f"❌ {j.get('message','Nomer olishda xatolik!')}", "show_alert": True})
+            return
+
+        phone = j["result"]["number"]
+        hash_code = j["result"]["hash_code"]
+
+        new_bal = round(float(user["balance"]) - pric, 2)
+        user["balance"] = str(new_bal)
+        save_user(chat_id, user)
+
+        edit_msg(chat_id, mid2,
+            f"🛎 Sizga nomer berildi!\n\n"
+            f"🌍 Davlat: {davlat}\n"
+            f"📱 Xizmat: {svc_name}\n"
+            f"💸 Narxi: {price_str}\n"
+            f"📞 Nomer: <code>{phone}</code>\n\n"
+            f"📨 Kodni olish uchun quyidagi tugmani bosing!",
             keyboard([
                 [{"text": "📩 Kodni olish", "callback_data": f"pcode_{hash_code}_{int(pric)}"}],
             ])
@@ -1177,10 +1557,11 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
             return
         hash_code = parts[1]
         so_val = parts[2]
+        key = get_sim_key()
 
         try:
             resp = requests.get(
-                f"{SALESEEN_URL}?action=getCode&apiKey={SIM_KEY}&hash_code={hash_code}",
+                f"{SALESEEN_URL}?action=getCode&apiKey={key}&hash_code={hash_code}",
                 timeout=10, verify=False
             )
             j = resp.json()
@@ -1190,7 +1571,6 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
             return
 
         status = j.get("status", "")
-
         if j.get("success") or status == "Activated":
             result = j.get("result", {})
             smskod = result.get("code", "—")
@@ -1205,7 +1585,7 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
             if password:
                 msg_text += f"\n🔑 Parol: <code>{password}</code>"
             sms(chat_id, msg_text, None)
-        elif status in ("Pending", "waiting"):
+        elif status in ("Pending", "waiting", ""):
             bot_call("answerCallbackQuery", {"callback_query_id": qid,
                 "text": "⏰ Kod hali kelmadi. Biroz kuting...", "show_alert": True})
         else:
@@ -1216,6 +1596,16 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
     # ============================================================
     # ADMIN CALLBACK'LAR
     # ============================================================
+
+    elif data == "set_sim_key":
+        del_msg(chat_id, mid2)
+        sms(chat_id, "🔑 Yangi SaleSeen API kalitini yuboring:", back_menu())
+        _write_step(chat_id, "set_sim_key")
+
+    elif data == "set_sim_foiz":
+        del_msg(chat_id, mid2)
+        sms(chat_id, "📊 Yangi ustama foizni kiriting (masalan: 50):", back_menu())
+        _write_step(chat_id, "set_sim_foiz")
 
     elif data and data.startswith("holat-"):
         new_status = data.replace("holat-", "")
