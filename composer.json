@@ -1,0 +1,6 @@
+{
+    "name": "nomeri-bot/bot",
+    "require": {
+        "php": ">=8.0"
+    }
+}
