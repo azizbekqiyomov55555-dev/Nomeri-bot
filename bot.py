@@ -24,9 +24,9 @@ ADMIN_ID         = os.getenv("ADMIN_ID", "")
 BOT_USERNAME     = os.getenv("BOT_USERNAME", "")
 
 SIM_KEY  = os.getenv("SIM_KEY", "c9947f74188921527252c1cb9b14816f")
-SIM_FOIZ = int(os.getenv("SIM_FOIZ", "50"))
-SIM_RUB  = int(os.getenv("SIM_RUB", "130"))
+SIM_FOIZ = int(os.getenv("SIM_FOIZ", "50"))   # Ustama foiz (%)
 VALYUTA  = "so'm"
+SALESEEN_URL = "https://saleseen.uz/api/sms"
 
 # ===========================================================================
 # JSON FAYL MA'LUMOTLAR BAZASI
@@ -595,16 +595,18 @@ def handle_update(update: dict):
     # 📞 Nomer olish
     if text == "📞 Nomer olish" and join_check(cid):
         sms(cid,
-            "❗️Bo'limdan foydalanish uchun ushbu shartlarga roziligingizni bildiring\n\n"
-            "- Sizga virtual nomer berilganda uni bemalol almashtirishingiz yoki bekor qilishingiz mumkin\n"
-            "- Agar sizga sms kod kelsa virtual nomerni boshqa almashtirolmaysiz va nomer uchun pul yechiladi\n"
-            "- Agarda kelgan kod noto'g'ri bo'lsa siz berilgan 20 daqiqa ichida yangi sms kod so'rashingiz mumkin\n"
-            "- Agar sizga sms kelsa lekin nomerga kira olmasangiz hamda 20 daqiqani o'tkazib yuborsangiz nomer baribir sotilgan hisoblanadi\n"
-            "- Bot orqali olgan nomeringizni o'chirsangiz yoki u block bo'lsa nomer tiklab berilmaydi\n"
-            "- Telegram uchun nomer olganingizda 'Kod telegram orqali yuborildi' deyilgan habar chiqsa nomerni darhol bekor qiling!\n\n"
-            "☝️ Yuqoridagi holatlar uchun da'volar qabul qilinmaydi",
+            "📞 Nomer olish bo'limi\n\n"
+            "⚡️ SaleSeen orqali tayyor Telegram akkauntlar:\n\n"
+            "✅ Oldindan faollashtirilgan\n"
+            "✅ 2FA (2-bosqichli tekshiruv) yo'q\n"
+            "✅ Kod darhol beriladi\n"
+            "✅ Bir nechta mamlakat mavjud\n\n"
+            "❗️ Shartlar:\n"
+            "- Nomer sotib olingandan so'm pul qaytarilmaydi\n"
+            "- Balans yetarli bo'lishi shart\n"
+            "- Nomer bir martalik foydalanish uchun",
             keyboard([
-                [{"text": "✅ Roziman", "callback_data": "hop"}],
+                [{"text": "✅ Roziman, davom etish", "callback_data": "hop"}],
                 [{"text": "❌ Bekor qilish", "callback_data": "main"}],
             ])
         )
@@ -649,18 +651,24 @@ def handle_update(update: dict):
     if text == "📞 Nomer API balans" and str(cid) == str(ADMIN_ID):
         try:
             resp = requests.get(
-                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getBalance",
+                f"{SALESEEN_URL}?action=getBalance&apiKey={SIM_KEY}",
                 timeout=10, verify=False
             )
-            h = resp.text.split(":")[1] if ":" in resp.text else resp.text
+            j = resp.json()
+            if j.get("success"):
+                bal = j["result"]["balance"]
+                cur = j["result"].get("currency", "UZS")
+                h = f"{bal} {cur}"
+            else:
+                h = j.get("message", "Xatolik")
         except Exception:
             h = "Xatolik"
         sms(cid,
             f"📄 API ma'lumotlari:\n"
             f"➖➖➖➖➖➖➖➖➖➖➖\n"
-            f"Ulangan sayt:\n<code>sms-activate.org</code>\n\n"
+            f"Ulangan sayt:\n<code>saleseen.uz</code>\n\n"
             f"API kalit:\n<code>{SIM_KEY}</code>\n\n"
-            f"API hisob: {h} ₽\n"
+            f"API hisob: {h}\n"
             f"➖➖➖➖➖➖➖➖➖➖➖",
             admin_panel_menu()
         )
@@ -940,252 +948,233 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
         del_msg(chat_id, mid2)
 
     # ============================================================
-    # 📞 NOMER OLISH - sms-activate.org orqali
+    # 📞 NOMER OLISH - saleseen.uz orqali
     # ============================================================
 
     elif data == "hop":
-        # Roziman - davlatlar ro'yxati (1-sahifa)
+        # Roziman - davlatlar ro'yxati (availableCountries)
         try:
             resp = requests.get(
-                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getCountries",
+                f"{SALESEEN_URL}?action=availableCountries&apiKey={SIM_KEY}",
                 timeout=10, verify=False
             )
-            if resp.text in ("BAD_KEY", "NO_KEY"):
+            j = resp.json()
+            if not j.get("success"):
                 bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                    "text": "⚠️ Botga API kalit ulanmagan!", "show_alert": True})
+                    "text": f"⚠️ Xatolik: {j.get('message','API xatolik')}", "show_alert": True})
                 return
-            url = resp.json()
+            countries_data = j["result"]["countries"]  # {"1": {"UZ": "0.85"}, ...}
         except Exception:
             bot_call("answerCallbackQuery", {"callback_query_id": qid,
                 "text": "⚠️ API bilan bog'lanishda xatolik!", "show_alert": True})
             return
-        country_names = {
-            "Russia":"🇷🇺 Rossiya","Ukraine":"🇺🇦 Ukraina","Kazakhstan":"🇰🇿 Qozog'iston",
-            "China":"🇨🇳 Xitoy","Philippines":"🇵🇭 Filippin","Myanmar":"🇲🇲 Myanma",
-            "Indonesia":"🇮🇩 Indoneziya","Malaysia":"🇲🇾 Malayziya","Kenya":"🇰🇪 Keniya","Tanzania":"🇹🇿 Tanzaniya"
-        }
-        key = []
-        for i in range(min(10, len(url))):
-            eng = url[i].get("eng","")
-            n = country_names.get(eng, eng)
-            cid_val = url[i].get("id")
-            key.append({"text": n, "callback_data": f"raqam=tg=ig=fb=tw=vi=oi=ts=go={cid_val}={n}"})
-        key1 = [key[i:i+2] for i in range(0, len(key), 2)]
-        key1.append([{"text": "1/6", "callback_data": "null"}, {"text": "⏭️", "callback_data": "davlat2"}])
-        key1.append([{"text": "⏮️ Orqaga", "callback_data": "main"}])
-        edit_msg(chat_id, mid2, "🌍 Nomer olish uchun davlatlar ro'yxati:", keyboard(key1))
 
-    elif data in ("davlat2","davlat3","davlat4","davlat5","davlat6"):
-        page_map = {"davlat2":(10,20,"hop","davlat4","2/6"),
-                    "davlat3":(20,30,"davlat2","davlat5","3/6"),
-                    "davlat4":(30,40,"davlat3","davlat5","4/6"),
-                    "davlat5":(40,50,"davlat4","davlat6","5/6"),
-                    "davlat6":(53,63,"davlat5",None,"6/6")}
-        start_i, end_i, prev_cb, next_cb, page_label = page_map[data]
+        # Har bir server ID → server tugmasi
+        server_ids = list(countries_data.keys())
+        _write_file(f"user/{chat_id}.servers", json.dumps(server_ids))
+
+        # Server tanlash menusi (har bir server = bir server raqami)
+        btns = []
+        for i in range(0, len(server_ids), 2):
+            row = []
+            for sid in server_ids[i:i+2]:
+                row.append({"text": f"🖥 Server {sid}", "callback_data": f"server_sel={sid}"})
+            btns.append(row)
+        btns.append([{"text": "⏮️ Orqaga", "callback_data": "main"}])
+        edit_msg(chat_id, mid2, "🖥 Nomer olish uchun server tanlang:", keyboard(btns))
+
+    elif data and data.startswith("server_sel="):
+        server_id = data.split("=")[1]
+        # Bu server uchun mavjud mamlakatlar
         try:
-            url = requests.get(
-                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getCountries",
+            resp = requests.get(
+                f"{SALESEEN_URL}?action=availableCountries&apiKey={SIM_KEY}",
                 timeout=10, verify=False
-            ).json()
+            )
+            j = resp.json()
+            if not j.get("success"):
+                bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                    "text": "⚠️ API xatolik", "show_alert": True})
+                return
+            countries_data = j["result"]["countries"]
+            server_countries = countries_data.get(str(server_id), {})
         except Exception:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "⚠️ Xatolik!", "show_alert": True})
             return
-        key = []
-        for i in range(start_i, min(end_i, len(url))):
-            eng = url[i].get("eng","")
-            cid_val = url[i].get("id")
-            key.append({"text": eng, "callback_data": f"raqam=tg=ig=fb=tw=vi=oi=ts=go={cid_val}={eng}"})
-        key1 = [key[i:i+2] for i in range(0, len(key), 2)]
-        nav = [{"text": f"⏮️", "callback_data": prev_cb}, {"text": page_label, "callback_data": "null"}]
-        if next_cb:
-            nav.append({"text": "⏭️", "callback_data": next_cb})
-        key1.append(nav)
-        key1.append([{"text": "⏮️ Orqaga", "callback_data": "hop"}])
-        edit_msg(chat_id, mid2, "🌍 Nomer olish uchun davlatlar ro'yxati:", keyboard(key1))
 
-    elif data and data.startswith("raqam="):
+        if not server_countries:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "❌ Bu serverda mamlakat yo'q!", "show_alert": True})
+            return
+
+        flag_map = {
+            "UZ": "🇺🇿 O'zbekiston", "RU": "🇷🇺 Rossiya", "KZ": "🇰🇿 Qozog'iston",
+            "UA": "🇺🇦 Ukraina", "US": "🇺🇸 AQSh", "TR": "🇹🇷 Turkiya",
+            "IN": "🇮🇳 Hindiston", "DE": "🇩🇪 Germaniya", "GB": "🇬🇧 Britaniya",
+            "FR": "🇫🇷 Fransiya", "PH": "🇵🇭 Filippin", "ID": "🇮🇩 Indoneziya",
+        }
+        btns = []
+        items = list(server_countries.items())
+        for i in range(0, len(items), 2):
+            row = []
+            for country_code, price_usd in items[i:i+2]:
+                label = flag_map.get(country_code, f"🌍 {country_code}")
+                row.append({
+                    "text": f"{label} (${price_usd})",
+                    "callback_data": f"country_sel={country_code}={server_id}"
+                })
+            btns.append(row)
+        btns.append([{"text": "⏮️ Orqaga", "callback_data": "hop"}])
+        edit_msg(chat_id, mid2, f"🌍 Server {server_id} — mamlakat tanlang:", keyboard(btns))
+
+    elif data and data.startswith("country_sel="):
         parts = data.split("=")
-        if len(parts) < 11:
+        country_code = parts[1]
+        server_id = parts[2]
+        # Narxni olish
+        try:
+            resp = requests.get(
+                f"{SALESEEN_URL}?action=priceNumberFromCountry&apiKey={SIM_KEY}"
+                f"&country={country_code}&server={server_id}",
+                timeout=10, verify=False
+            )
+            j = resp.json()
+            if not j.get("success"):
+                bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                    "text": f"⚠️ {j.get('message','Xatolik')}", "show_alert": True})
+                return
+            price_uzs = j["result"]["prices"].get("UZS", 0)
+            price_usd = j["result"]["prices"].get("USD", 0)
+        except Exception:
+            bot_call("answerCallbackQuery", {"callback_query_id": qid,
+                "text": "⚠️ Narx olishda xatolik!", "show_alert": True})
             return
-        tg_s, ig_s, fb_s, tw_s, vi_s, oi_s, ts_s, go_s = parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts[7], parts[8]
-        country_id = parts[9]
-        davlat = parts[10]
 
-        def get_price_count(service_code):
-            try:
-                j = requests.get(
-                    f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getTopCountriesByService&operator=any&service={service_code}",
-                    timeout=8, verify=False
-                ).json()
-                for el in j:
-                    if str(el.get("country")) == str(country_id):
-                        rate = float(el.get("retail_price", 0)) * SIM_RUB
-                        rp = rate / 100
-                        na = rp * SIM_FOIZ + rate
-                        return round(na, 0), el.get("count", 0)
-            except Exception:
-                pass
-            return 0, 0
+        # Ustama qo'shish
+        final_price = round(float(price_uzs) * (1 + SIM_FOIZ / 100), 0)
 
-        tna, tson = get_price_count(tg_s)
-        ina, ison = get_price_count(ig_s)
-        fna, fson = get_price_count(fb_s)
-        wna, wson = get_price_count(tw_s)
-        gna, gson = get_price_count(go_s)
-        imna, son = get_price_count(vi_s)
-        stna, stson = get_price_count(oi_s)
-        schna, schson = get_price_count(ts_s)
+        flag_map = {
+            "UZ": "🇺🇿 O'zbekiston", "RU": "🇷🇺 Rossiya", "KZ": "🇰🇿 Qozog'iston",
+            "UA": "🇺🇦 Ukraina", "US": "🇺🇸 AQSh", "TR": "🇹🇷 Turkiya",
+            "IN": "🇮🇳 Hindiston", "DE": "🇩🇪 Germaniya", "GB": "🇬🇧 Britaniya",
+            "FR": "🇫🇷 Fransiya", "PH": "🇵🇭 Filippin", "ID": "🇮🇩 Indoneziya",
+        }
+        davlat = flag_map.get(country_code, country_code)
 
         edit_msg(chat_id, mid2,
-            f"📞 Nomerni qaysi ijtimoiy tarmoq uchun olmoqchisiz?\n\n"
-            f"🌍 Davlat: {davlat}\n\n"
-            f"📱 Telegram - {tna} so'm\n"
-            f"📷 Instagram - {ina} so'm\n"
-            f"📘 Facebook - {fna} so'm\n"
-            f"🐦 Twitter - {wna} so'm\n"
-            f"🔍 Google - {gna} so'm\n"
-            f"📞 Viber - {imna} so'm\n"
-            f"💘 Tinder - {stna} so'm\n"
-            f"💳 PayPal - {schna} so'm",
+            f"📞 Nomer ma'lumotlari\n\n"
+            f"🌍 Davlat: {davlat}\n"
+            f"🖥 Server: {server_id}\n"
+            f"💵 Narxi: {final_price:.0f} so'm (${price_usd})\n\n"
+            f"⚡️ Telegram akkaunt — tayyor, faollashtirilgan!\n"
+            f"📲 Nomer sotib olishni xohlaysizmi?",
             keyboard([
-                [{"text": f"📱 Telegram - {tson} ta", "callback_data": f"olish=tg={country_id}=any={tna}={davlat}"},
-                 {"text": f"📷 Instagram - {ison} ta", "callback_data": f"olish=ig={country_id}=any={ina}={davlat}"}],
-                [{"text": f"📘 Facebook - {fson} ta", "callback_data": f"olish=fb={country_id}=any={fna}={davlat}"},
-                 {"text": f"🐦 Twitter - {wson} ta", "callback_data": f"olish=tw={country_id}=any={wna}={davlat}"}],
-                [{"text": f"🔍 Google - {gson} ta", "callback_data": f"olish=go={country_id}=any={gna}={davlat}"},
-                 {"text": f"📞 Viber - {son} ta", "callback_data": f"olish=vi={country_id}=any={imna}={davlat}"}],
-                [{"text": f"💘 Tinder - {stson} ta", "callback_data": f"olish=oi={country_id}=any={stna}={davlat}"},
-                 {"text": f"💳 PayPal - {schson} ta", "callback_data": f"olish=ts={country_id}=any={schna}={davlat}"}],
-                [{"text": "🔙 Orqaga", "callback_data": "hop"}, {"text": "🏠 Menu", "callback_data": "main"}],
+                [{"text": f"✅ Sotib olish — {final_price:.0f} so'm",
+                  "callback_data": f"buy_num={country_code}={server_id}={final_price:.0f}={davlat}"}],
+                [{"text": "⏮️ Orqaga", "callback_data": f"server_sel={server_id}"}],
             ])
         )
 
-    elif data and data.startswith("olish="):
+    elif data and data.startswith("buy_num="):
         parts = data.split("=")
-        if len(parts) < 6:
+        if len(parts) < 5:
             return
-        xiz, country_id, op, pric_str, davlat = parts[1], parts[2], parts[3], parts[4], parts[5]
-        try:
-            pric = float(pric_str)
-        except ValueError:
-            return
+        country_code = parts[1]
+        server_id = parts[2]
+        pric = float(parts[3])
+        davlat = parts[4]
+
         user = get_user(chat_id)
         if not user:
             return
         if float(user.get("balance", 0)) < pric:
             bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                "text": "❗Sizda mablag' yetarli emas!", "show_alert": True})
+                "text": "❗ Sizda mablag' yetarli emas!", "show_alert": True})
             return
+
+        # Nomer sotib olish
         try:
             resp = requests.get(
-                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getNumber"
-                f"&service={xiz}&country={country_id}&operator={op}",
+                f"{SALESEEN_URL}?action=buyNumber&apiKey={SIM_KEY}"
+                f"&country={country_code}&server={server_id}",
                 timeout=15, verify=False
             )
-            response_text = resp.text
+            j = resp.json()
         except Exception:
             bot_call("answerCallbackQuery", {"callback_query_id": qid,
                 "text": "❌ Xatolik yuz berdi!", "show_alert": True})
             return
-        if response_text == "NO_NUMBERS":
+
+        if not j.get("success"):
             bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                "text": "❌ Bu tarmoq uchun nomer mavjud emas!", "show_alert": True})
+                "text": f"❌ {j.get('message','Nomer olishda xatolik!')}", "show_alert": True})
             return
-        if response_text == "NO_BALANCE":
-            bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                "text": "⚠️ API balansida mablag' yetarli emas!", "show_alert": True})
-            return
-        if "ACCESS_NUMBER" in response_text:
-            pieces = response_text.split(":")
-            simid = pieces[1]
-            phone = pieces[2]
-            # Balansdan ayir
-            new_bal = round(float(user["balance"]) - pric, 2)
-            user["balance"] = str(new_bal)
-            save_user(chat_id, user)
-            edit_msg(chat_id, mid2,
-                f"🛎 Sizga nomer berildi\n"
-                f"🌍 Davlat: {davlat}\n"
-                f"💸 Narxi: {pric} so'm\n"
-                f"📞 Nomeringiz: +{phone}\n\n"
-                f"Nusxalash: <code>{phone}</code>\n\n"
-                f"📨 Kodni olish uchun « 📩 SMS-kod olish » tugmasini bosing!\n\n"
-                f"❗️Smsni kutishga 20 daqiqa berildi\n"
-                f"Agar 'Kod telegram orqali yuborildi' chiqsa nomerni darhol bekor qiling!",
-                keyboard([
-                    [{"text": "📩 SMS-kod olish", "callback_data": f"pcode_{simid}_{pric}"}],
-                    [{"text": "❌ Bekor qilish", "callback_data": f"otmena_{simid}_{pric}"}],
-                ])
-            )
-        else:
-            bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                "text": "❌ Nomer olishda xatolik!", "show_alert": True})
+
+        phone = j["result"]["number"]
+        hash_code = j["result"]["hash_code"]
+        real_price_uzs = j["result"]["prices"].get("UZS", pric)
+
+        # Balansdan ayir
+        new_bal = round(float(user["balance"]) - pric, 2)
+        user["balance"] = str(new_bal)
+        save_user(chat_id, user)
+
+        edit_msg(chat_id, mid2,
+            f"🛎 Sizga nomer berildi!\n\n"
+            f"🌍 Davlat: {davlat}\n"
+            f"🖥 Server: {server_id}\n"
+            f"💸 Narxi: {pric:.0f} so'm\n"
+            f"📞 Nomeringiz: {phone}\n\n"
+            f"Nusxalash: <code>{phone}</code>\n\n"
+            f"📨 Kodni olish uchun tugmani bosing!\n"
+            f"⏰ Kod kelishini kuting...",
+            keyboard([
+                [{"text": "📩 Kodni olish", "callback_data": f"pcode_{hash_code}_{pric}"}],
+            ])
+        )
 
     elif data and data.startswith("pcode_"):
         parts = data.split("_")
-        simid = parts[1]
-        so_val = parts[2] if len(parts) > 2 else "0"
-        used = _read_file("simcard.txt") or ""
-        if simid in used:
-            del_msg(chat_id, mid2)
-            bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                "text": "❌ Kech qoldingiz yoki raqamni olib bo'ldingiz!", "show_alert": True})
+        if len(parts) < 3:
             return
+        hash_code = parts[1]
+        so_val = parts[2]
+
         try:
             resp = requests.get(
-                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=getStatus&id={simid}",
+                f"{SALESEEN_URL}?action=getCode&apiKey={SIM_KEY}&hash_code={hash_code}",
                 timeout=10, verify=False
             )
-            response_text = resp.text
+            j = resp.json()
         except Exception:
             bot_call("answerCallbackQuery", {"callback_query_id": qid,
                 "text": "⚠️ Xatolik yuz berdi!", "show_alert": True})
             return
-        if "STATUS_OK" in response_text:
-            smskod = response_text.split(":")[1]
-            del_msg(chat_id, mid2)
-            sms(chat_id, f"📩 SMS keldi!\n\n🔢 KOD: <code>{smskod}</code>", None)
-        elif response_text == "STATUS_CANCEL":
-            bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                "text": f"✅ Balansingizga {so_val} so'm qaytarildi!", "show_alert": True})
-            user = get_user(chat_id)
-            if user:
-                user["balance"] = str(round(float(user["balance"]) + float(so_val), 2))
-                save_user(chat_id, user)
-            _write_file("simcard.txt", f"\n{simid}")
-        else:
-            bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                "text": "⏰ SMS kutilmoqda! Biroz kuting...", "show_alert": True})
 
-    elif data and data.startswith("otmena_"):
-        parts = data.split("_")
-        simid = parts[1]
-        so_val = parts[2] if len(parts) > 2 else "0"
-        used = _read_file("simcard.txt") or ""
-        if simid in used:
-            bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                "text": "❌ Kech qoldingiz yoki raqamni olib bo'ldingiz!", "show_alert": True})
-            return
-        try:
-            resp = requests.get(
-                f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SIM_KEY}&action=setStatus&status=8&id={simid}",
-                timeout=10, verify=False
+        status = j.get("status", "")
+
+        if j.get("success") or status == "Activated":
+            result = j.get("result", {})
+            smskod = result.get("code", "—")
+            password = result.get("password", "")
+            number = result.get("number", "")
+            del_msg(chat_id, mid2)
+            msg_text = (
+                f"✅ Kod keldi!\n\n"
+                f"📞 Nomer: <code>{number}</code>\n"
+                f"🔢 Kod: <code>{smskod}</code>"
             )
-            response_text = resp.text
-        except Exception:
+            if password:
+                msg_text += f"\n🔑 Parol: <code>{password}</code>"
+            sms(chat_id, msg_text, None)
+        elif status in ("Pending", "waiting"):
             bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                "text": "⚠️ Xatolik!", "show_alert": True})
-            return
-        if "ACCESS_CANCEL" in response_text:
-            bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                "text": f"✅ Balansingizga {so_val} so'm qaytarildi", "show_alert": True})
-            user = get_user(chat_id)
-            if user:
-                user["balance"] = str(round(float(user["balance"]) + float(so_val), 2))
-                save_user(chat_id, user)
-            _write_file("simcard.txt", f"\n{simid}")
+                "text": "⏰ Kod hali kelmadi. Biroz kuting...", "show_alert": True})
         else:
+            noma = j.get("message", "Noma'lum")
             bot_call("answerCallbackQuery", {"callback_query_id": qid,
-                "text": "❗ Kuting.....", "show_alert": True})
+                "text": f"⚠️ Holat: {status or noma}", "show_alert": True})
 
     # ============================================================
     # ADMIN CALLBACK'LAR
