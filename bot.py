@@ -19,9 +19,9 @@ from flask import Flask, request, jsonify
 # SOZLAMALAR - faqat shu 2 ta kerak
 # ===========================================================================
 
-TELEGRAM_API_KEY = "8674893543:AAEmbCiJkWchGiSgXzXrcL_NYZRFl75GEbw"
-ADMIN_ID         = "8537782289"
-BOT_USERNAME     = "@Vjjiygbot"
+TELEGRAM_API_KEY = os.getenv("BOT_TOKEN", "")
+ADMIN_ID         = os.getenv("ADMIN_ID", "")
+BOT_USERNAME     = ""
 
 SIM_KEY  = "8395fA936b4874292c214df2A4c9Ae8c"
 SIM_FOIZ = 50
@@ -697,7 +697,9 @@ def _handle_callback(data, chat_id, cid2, mid2, qid, settings, m):
         users_list = sorted(all_users(), key=lambda u: float(u.get("balance", 0)), reverse=True)[:10]
         txt = "🏆 TOP-10 balanslar reytingi\n\n"
         for i, u in enumerate(users_list, 1):
-            txt += f"<b>{i})</b> <a href='tg://user?id={u[\"id\"]}'>{u['id']}</a> - {u['balance']} so'm\n"
+            uid_val = u['id']
+            bal_val = u['balance']
+            txt += f"<b>{i})</b> <a href='tg://user?id={uid_val}'>{uid_val}</a> - {bal_val} so'm\n"
         edit_msg(chat_id, mid2, txt, None)
 
     elif data == "main":
