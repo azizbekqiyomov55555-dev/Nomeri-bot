@@ -19,7 +19,7 @@ from flask import Flask, request, jsonify
 # SOZLAMALAR - faqat shu 2 ta kerak
 # ===========================================================================
 
-TELEGRAM_API_KEY = os.getenv("BOT_TOKEN", "")
+TELEGRAM_API_KEY = "8674893543:AAEmbCiJkWchGiSgXzXrcL_NYZRFl75GEbw"
 ADMIN_ID         = os.getenv("ADMIN_ID", "")
 BOT_USERNAME     = ""
 
