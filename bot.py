@@ -20,8 +20,8 @@ from flask import Flask, request, jsonify
 # ===========================================================================
 
 TELEGRAM_API_KEY = "8674893543:AAEmbCiJkWchGiSgXzXrcL_NYZRFl75GEbw"
-ADMIN_ID         = os.getenv("ADMIN_ID", "")
-BOT_USERNAME     = ""
+ADMIN_ID         = "8537782289"
+BOT_USERNAME     = "@Vjjiygbot"
 
 SIM_KEY  = "8395fA936b4874292c214df2A4c9Ae8c"
 SIM_FOIZ = 50
