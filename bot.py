@@ -19,7 +19,7 @@ from flask import Flask, request, jsonify
 # SOZLAMALAR - faqat shu 2 ta kerak
 # ===========================================================================
 
-TELEGRAM_API_KEY = "8674893543:AAEmbCiJkWchGiSgXzXrcL_NYZRFl75GEbw"
+TELEGRAM_API_KEY = "8794628389:AAFUnBDrguXJLvmmvI-qOHOW1in4YNch9B4"
 ADMIN_ID         = "8537782289"
 BOT_USERNAME     = "@Vjjiygbot"
 
